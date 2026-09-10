@@ -1,0 +1,75 @@
+import {actionFields,configFields,flagFields,allFields,requiredActionFields,defaultActionType,defaultActionValues,schemaDefault,referenceId,weaponGroups,makeConfiguredAction,syncActionTargets,validateActionType} from './action-schema.js';
+import {clone,uid,validate,deployedEntities} from './core.js';
+
+export function actionUI({api,getPlan,getCatalog,showModal,closeModal,modalError,esc,field,button,note,changed,toast}){
+  const input=(id,value='',attrs='')=>`<input id="${id}" value="${esc(value)}" ${attrs}>`;
+  function catalogHTML(){const types=getCatalog();return `<div class="panel"><div class="panel-heading"><h2>行动类型 · ${types.length}</h2>${button('添加行动类型','add-action-type','plus','primary')}</div><div class="panel-body">${note('开始时间和结束时间固定必填。勾选的其它字段在添加行动时必须填写；未勾选的字段不显示，也不输出。策略字段的实际是/否值由每条行动填写。')}<div class="table-scroll"><table><thead><tr><th>行动名称</th><th>行动代码</th><th>启用字段</th><th>操作</th></tr></thead><tbody>${types.map(t=>`<tr><td>${esc(t.xdmc)}</td><td>${esc(t.rule_type_code)}</td><td>${Object.entries(flagFields).filter(([key])=>t[key]).map(([,s])=>esc(s.label)).join('、')||'无'}</td><td>${button('配置字段','edit-action-type','edit','small',`data-id="${esc(t.rule_type_code)}"`)}</td></tr>`).join('')}</tbody></table></div></div></div>`;}
+  function typeDialog(code){
+    const existing=getCatalog().find(t=>t.rule_type_code===code),type=clone(existing||{...defaultActionType,rule_type_code:'',xdmc:''});
+    const section=(title,fields)=>`<section class="command-section"><h3>${title}</h3><div class="choice-grid">${Object.entries(fields).filter(([key])=>key in flagFields).map(([key,schema])=>`<label class="choice"><input type="checkbox" data-type-flag="${key}" ${type[key]?'checked':''}><span>${esc(schema.label)}<small>${key}</small></span></label>`).join('')}</div></section>`;
+    showModal(existing?'配置行动字段':'添加行动类型','一条记录定义一种行动，以及该行动需要填写的项目。',`<form id="action-type-form"><div class="form-grid">${field('行动代码',input('type-code',type.rule_type_code,`required pattern="[0-9]{6}" placeholder="六位数字" ${existing?'readonly':''}`))}${field('行动名称',input('type-name',type.xdmc,'required'))}</div>${section('行动字段',actionFields)}${section('策略字段',configFields)}${note('开始时间和结束时间固定必填，无需配置。行动编号启用后由系统为每条行动独立生成。修改类型配置只影响新建行动；已有行动保留创建时的字段配置。')}</form>`,button('取消','close')+'<button class="button primary" form="action-type-form">保存行动类型</button>',true);
+    document.querySelector('#action-type-form').onsubmit=async event=>{event.preventDefault();const value={rule_type_code:document.querySelector('#type-code').value.trim(),xdmc:document.querySelector('#type-name').value.trim(),...Object.fromEntries([...document.querySelectorAll('[data-type-flag]')].map(el=>[el.dataset.typeFlag,el.checked]))};const errors=validateActionType(value);if(errors.length)return modalError(errors[0]);const submit=document.querySelector('[form="action-type-form"]');submit.disabled=true;try{await api.saveActionType(value,!!existing);closeModal();changed(false);toast('行动类型已保存到数据库。');}catch(e){modalError(e.message);submit.disabled=false;}};
+  }
+  function dialog(id=null){
+    const plan=getPlan(),roots=deployedEntities(plan),existing=plan.actions.find(a=>a.id===id),types=clone(getCatalog());
+    if(!roots.length)return toast('请先在地图添加执行实体。',true);
+    if(!types.length)return toast('请先在模型与行动页面添加行动类型。',true);
+    let definition=clone(existing?.definition||types.find(t=>t.rule_type_code===existing?.code)||types[0]);
+    let owners=[existing?.executor||roots[0].id],values=existing?.values?clone(existing.values):defaultActionValues(plan,owners[0]);
+    if(existing&&!existing.definition){
+      definition.launch=!!existing.weapon;definition.route=!!existing.route?.length;
+      values.start_time=existing.start;values.end_time=existing.end;
+      values.target=existing.targets.map(id=>({target_id:referenceId(roots.find(e=>e.id===id))}));
+      if(existing.weapon){values.launch[0].weapon_type=weaponGroups(plan,existing.executor).find(w=>w.mount_type===existing.weaponModelId)?.mount_type||existing.weaponModelId;values.launch[0].weapon_num=existing.count;}
+      if(existing.route?.length)values.route=[{points:existing.route.map((point,order)=>({...point,order}))}];
+    }
+    if(existing){const index=types.findIndex(t=>t.rule_type_code===definition.rule_type_code);if(index>=0)types[index]=definition;else types.push(definition);}
+    const typeOptions=types.map(t=>`<option value="${esc(t.rule_type_code)}" ${definition.rule_type_code===t.rule_type_code?'selected':''}>${esc(t.xdmc)}（${esc(t.rule_type_code)}）</option>`).join('');
+    showModal(existing?'编辑行动':'添加行动','按类型配置填写启用字段；同一型号的实体可多选，并分别批量创建行动。',`<form id="command-form"><div class="form-grid">${field('行动类型',`<select id="command-type" ${existing?'disabled':''}>${typeOptions}</select>`)}${field('每个实体的行动条数',input('command-repeat',1,`type="number" min="1" max="50" step="1" required ${existing?'disabled':''}`))}<div class="field full"><label>执行实体</label><div id="command-owners" class="choice-grid">${roots.map(e=>`<label class="choice"><input type="checkbox" name="command-owner" value="${e.id}" ${owners.includes(e.id)?'checked':''} ${existing?'disabled':''}><span>${esc(e.name)}<small>${e.side==='Blue'?'蓝方':'红方'} · ${esc(e.model.mxmc)}</small></span></label>`).join('')}</div></div></div><p id="command-batch-summary" class="note"></p><div id="command-fields"></div></form>`,button('取消','close')+'<button class="button primary" form="command-form">保存行动</button>',true);
+    const fields=document.querySelector('#command-fields');
+    const pathString=path=>esc(JSON.stringify(path));
+    function choices(ref){const owner=roots.find(e=>e.id===owners[0]);if(!owner)return [];if(ref==='executor')return [{value:referenceId(owner),label:owner.name}];if(ref==='weapon')return weaponGroups(plan,owner.id).map(w=>({value:w.mount_type,label:`${w.mount_type_name} · ${w.num} 个`}));return roots.filter(e=>ref==='target'?e.side!==owner.side:ref==='airport'?e.side===owner.side&&[e.model.ThirdCfn,e.model.ForthCfn].some(s=>s?.includes('机场')):true).map(e=>({value:referenceId(e),label:e.name}));}
+    function control(schema,value,path){
+      const token=pathString(path),key=path.join('.');
+      if(schema.type==='object')return `<fieldset class="command-section"><legend>${esc(schema.label)}</legend><div class="form-grid">${Object.entries(schema.properties).map(([k,s])=>control(s,value?.[k],[...path,k])).join('')}</div></fieldset>`;
+      if(schema.type==='array')return `<fieldset class="command-section full"><legend>${esc(schema.label)}${schema.optional?'（可选）':''}</legend>${schema.optional?'<p class="small muted">不配置时可删除全部条目，生成指令时将省略此项。</p>':''}${(value||[]).map((item,index)=>`<div class="command-array-row"><div class="grow">${control(schema.item,item,[...path,index])}</div><button type="button" class="button small" data-array-remove="${token}" data-index="${index}" ${(value||[]).length<=schema.min?'disabled':''}>删除条目</button></div>`).join('')}<button type="button" class="button small" data-array-add="${token}" ${(value||[]).length>=(schema.max??500)?'disabled':''}>添加${esc(schema.item.label)}</button></fieldset>`;
+      if(schema.generated)return field(schema.label,'<input value="'+esc(existing?.id||'保存后自动生成，每条行动唯一')+'" readonly>','','full');
+      let html;
+      const attrs=`data-command-path="${token}" aria-label="${esc(key)}"`;
+      if(schema.type==='boolean')html=`<select ${attrs}><option value="true" ${value===true?'selected':''}>是</option><option value="false" ${value===false?'selected':''}>否</option></select>`;
+      else if(schema.ref){const options=choices(schema.ref);html=`<select ${attrs} ${schema.empty?'':'required'} ${schema.ref==='executor'?'disabled':''}><option value="">${schema.empty?'不设置':'请选择'}</option>${options.map(x=>`<option value="${esc(x.value)}" ${x.value===value?'selected':''}>${esc(x.label)}</option>`).join('')}${value&&!options.some(x=>x.value===value)?`<option value="${esc(value)}" selected>引用已失效，请重新选择</option>`:''}</select>`;}
+      else html=`<input ${attrs} type="${schema.type==='number'?'number':'text'}" value="${esc(value??'')}" ${schema.empty?'':'required'} ${schema.type==='number'?`step="${schema.integer?1:'any'}" ${schema.min!=null?`min="${schema.min}"`:''} ${schema.max!=null?`max="${schema.max}"`:''}`:''}>`;
+      return field(schema.label,html);
+    }
+    function get(path){return path.reduce((v,key)=>v[key],values);}
+    function set(path,value){const parent=path.slice(0,-1).reduce((v,key)=>v[key],values);parent[path.at(-1)]=value;}
+    function schemaAt(path){let schema=allFields[path[0]];for(const key of path.slice(1))schema=schema.type==='array'?schema.item:schema.properties[key];return schema;}
+    function summary(){document.querySelector('#command-batch-summary').textContent=`${owners.length} 个执行实体 × ${document.querySelector('#command-repeat').value||0} 条行动，生成 ${owners.length*Number(document.querySelector('#command-repeat').value||0)} 个独立编号。`;}
+    function draw(){fields.innerHTML=[['行动时间（必填）',requiredActionFields],['行动参数',Object.fromEntries(Object.entries(actionFields).filter(([key])=>!(key in requiredActionFields)))],['行为策略',configFields]].map(([title,schemas])=>`<h3 style="margin-top:20px">${title}</h3><div class="form-grid">${Object.entries(schemas).filter(([key])=>key in requiredActionFields||definition[key]).map(([key,schema])=>control(schema,values[key],[key])).join('')||'<p class="muted">此类型未启用相关字段。</p>'}</div>`).join('');summary();}
+    fields.oninput=event=>{const el=event.target;if(!el.dataset.commandPath)return;const path=JSON.parse(el.dataset.commandPath),schema=schemaAt(path);set(path,schema.type==='number'?(el.value===''?null:Number(el.value)):schema.type==='boolean'?el.value==='true':el.value);};
+    fields.onchange=fields.oninput;
+    fields.onclick=event=>{const el=event.target.closest('[data-array-add],[data-array-remove]');if(!el)return;const adding=el.dataset.arrayAdd!=null,path=JSON.parse(adding?el.dataset.arrayAdd:el.dataset.arrayRemove),items=get(path)||[],schema=schemaAt(path);if(adding){if(items.length>=(schema.max??500))return;const item=schemaDefault(schema.item);if(item&&typeof item==='object'&&'order' in item)item.order=items.length;items.push(item);set(path,items);}else{if(items.length<=schema.min)return;items.splice(Number(el.dataset.index),1);}draw();};
+    document.querySelector('#command-type').onchange=event=>{definition=clone(types.find(t=>t.rule_type_code===event.target.value));values=defaultActionValues(plan,owners[0]||roots[0].id);draw();};
+    document.querySelector('#command-owners').onchange=()=>{owners=[...document.querySelectorAll('[name="command-owner"]:checked')].map(el=>el.value);if(owners.length){const defaults=defaultActionValues(plan,owners[0]);values.executor=defaults.executor;values.target=defaults.target;values.launch=defaults.launch;values.radar_detect_mode=defaults.radar_detect_mode;}draw();};
+    document.querySelector('#command-repeat').oninput=summary;
+    document.querySelector('#command-form').onsubmit=event=>{
+      event.preventDefault();const repeat=Number(document.querySelector('#command-repeat').value);
+      if(!owners.length)return modalError('请选择至少一个执行实体。');
+      if(!Number.isSafeInteger(repeat)||repeat<1||repeat>50)return modalError('每个实体的行动条数必须是 1–50 的整数。');
+      const first=roots.find(e=>e.id===owners[0]);if(owners.some(id=>{const e=roots.find(e=>e.id===id);return e.side!==first.side||e.model.mxlx!==first.model.mxlx;}))return modalError('批量创建请选择同一阵营、同一型号的实体。');
+      const added=owners.flatMap(owner=>Array.from({length:repeat},()=>{
+        const current=clone(values),e=roots.find(e=>e.id===owner);
+        if(current.executor?.length){current.executor[0].executor_id=referenceId(e);current.executor[0].formation_struct?.forEach(part=>{if(part.formation_id===first.formationId)part.formation_id=e.formationId;});}
+        return syncActionTargets(makeConfiguredAction(definition,current,owner,existing?.id||uid('ACT_')),plan);
+      }));
+      const candidate={...plan,actions:[...plan.actions.filter(a=>a.id!==existing?.id),...added]};
+      const originalErrors=new Set(validate({...plan,actions:plan.actions.filter(a=>a.id!==existing?.id)}).errors.map(e=>e.message));
+      const errors=validate(candidate).errors.filter(e=>!originalErrors.has(e.message)||owners.some(owner=>e.message.startsWith(roots.find(x=>x.id===owner).name+'：')));
+      if(errors.length)return modalError(errors[0].message);
+      if(existing)plan.actions[plan.actions.indexOf(existing)]=added[0];else plan.actions.push(...added);
+      closeModal();changed(true);toast(`已保存 ${added.length} 条行动。`);
+    };
+    draw();
+  }
+  return {catalogHTML,typeDialog,dialog};
+}

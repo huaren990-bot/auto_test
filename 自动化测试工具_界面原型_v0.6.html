@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>仿真测试自动化工具 · 界面原型 v0.1</title>
+<style>
+:root{
+  --bg:#eef1f6; --panel:#ffffff; --line:#dfe4ec; --line2:#e8ecf3;
+  --ink:#182335; --mut:#5d6b80; --faint:#8a95a8;
+  --acc:#1d5fd6; --acc-d:#164aa8; --acc-soft:#e9f0fe;
+  --ok:#177a46; --ok-bg:#e6f5ec; --ok-line:#bfe3cd;
+  --warn:#a15c00; --warn-bg:#fdf3e0; --warn-line:#f0d9ab;
+  --err:#c0302a; --err-bg:#fdecea; --err-line:#f2c6c2;
+  --nav:#101c30; --nav2:#16243c; --navline:#223349;
+  --mono:"Consolas","Cascadia Mono",monospace;
+  --sans:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  --r:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:14px;line-height:1.55}
+.mono{font-family:var(--mono)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#c6cdd8;border-radius:5px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- layout ---------- */
+#app{display:flex;height:100vh;overflow:hidden}
+#side{width:218px;min-width:218px;background:var(--nav);color:#cdd8e8;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:9px;padding:14px 16px 12px;border-bottom:1px solid var(--navline)}
+.brand .mark{width:30px;height:30px;border-radius:7px;background:linear-gradient(145deg,#2a6de8,#1d5fd6);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff}
+.brand b{color:#fff;font-size:14px;letter-spacing:.3px}
+.brand small{display:block;color:#7f93b0;font-size:11px;font-weight:400}
+.nav{padding:10px 8px;flex:1;overflow-y:auto}
+.nav .grp{color:#5f7392;font-size:11px;letter-spacing:1px;padding:10px 10px 4px}
+.nav a{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:#b9c6d8;text-decoration:none;font-size:13px;cursor:pointer;margin:1px 0}
+.nav a:hover{background:var(--nav2);color:#fff}
+.nav a.on{background:#1d5fd6;color:#fff;box-shadow:0 2px 8px rgba(29,95,214,.35)}
+.nav a .dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.55}
+.nav a.on .dot{opacity:1}
+.nav a .fr{font-family:var(--mono);font-size:10px;color:#7f93b0;margin-left:auto}
+.nav a.on .fr{color:#cfe0ff}
+.sidefoot{margin:8px;padding:10px 12px;border:1px solid var(--navline);border-radius:8px;font-size:11px;color:#7f93b0;background:var(--nav2)}
+.sidefoot b{color:#c6d4e6}
+
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#top{height:52px;min-height:52px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 18px}
+.taskchip{display:flex;align-items:center;gap:8px;min-width:0}
+.taskchip .tt{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.taskchip .tid{font-family:var(--mono);font-size:11px;color:var(--acc);background:var(--acc-soft);padding:2px 7px;border-radius:5px;white-space:nowrap}
+.topspacer{flex:1}
+.ver{font-size:11px;color:var(--faint);white-space:nowrap}
+#autodemo{background:var(--acc);color:#fff;border:0;border-radius:7px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+#autodemo:hover{background:var(--acc-d)}
+#autodemo:disabled{opacity:.55;cursor:wait}
+.userchip{display:flex;align-items:center;gap:7px;color:var(--mut);font-size:12.5px;white-space:nowrap}
+.userchip .av{width:26px;height:26px;border-radius:50%;background:#24344d;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px}
+
+#stepper{height:46px;min-height:46px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:0;overflow-x:auto}
+.stp{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.stp .ci{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;border:1.5px solid #c4ccd9;color:#9aa5b5;background:#fff}
+.stp .lb{font-size:12px;color:var(--faint)}
+.stp.done .ci{background:var(--ok);border-color:var(--ok);color:#fff}
+.stp.done .lb{color:var(--mut)}
+.stp.on .ci{background:var(--acc);border-color:var(--acc);color:#fff;box-shadow:0 0 0 4px var(--acc-soft)}
+.stp.on .lb{color:var(--acc);font-weight:600}
+.stp .bar{width:26px;height:1.5px;background:#c4ccd9;margin:0 8px;flex:none}
+.stp.done .bar{background:var(--ok)}
+
+#hint{background:#fffaf0;border-bottom:1px solid var(--warn-line);color:#7a4a00;font-size:12px;padding:5px 18px;display:flex;gap:8px;align-items:center}
+#hint b{color:#8a5400}
+
+#view{flex:1;overflow-y:auto;padding:18px}
+.wrap{max-width:1240px;margin:0 auto}
+
+/* ---------- generic ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px}
+.card-h{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line2)}
+.card-h h3{font-size:14px;font-weight:600}
+.card-h .sub{color:var(--faint);font-size:11.5px}
+.card-b{padding:14px 16px}
+.phead{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+.phead h2{font-size:17px;font-weight:700}
+.phead .tag{font-family:var(--mono);font-size:11px;color:var(--acc);background:var(--acc-soft);border:1px solid #d4e2fb;padding:1px 8px;border-radius:20px}
+.phead .desc{color:var(--mut);font-size:12.5px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:7px;border:1px solid transparent;padding:7px 14px;font-size:13px;font-family:var(--sans);cursor:pointer;background:#fff;transition:all .12s;font-weight:500}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.pri{background:var(--acc);color:#fff}
+.btn.pri:hover:not(:disabled){background:var(--acc-d)}
+.btn.sec{border-color:#c7cfdc;color:#33415a}
+.btn.sec:hover:not(:disabled){border-color:var(--acc);color:var(--acc);background:var(--acc-soft)}
+.btn.ok{background:var(--ok);color:#fff}
+.btn.ok:hover:not(:disabled){background:#115c34}
+.btn.danger{background:#fff;border-color:#e6b5b0;color:var(--err)}
+.btn.danger:hover:not(:disabled){background:var(--err-bg)}
+.btn.sm{padding:4px 9px;font-size:12px;border-radius:6px}
+.btn.ghost{border-color:transparent;color:var(--acc)}
+.btn.ghost:hover{background:var(--acc-soft)}
+.btn .spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:rot .7s linear infinite}
+.btn.sec .spin{border-color:#c7cfdc;border-top-color:var(--acc)}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:1.5px 8px;border-radius:20px;font-weight:500;white-space:nowrap;border:1px solid transparent}
+.badge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.badge.mut{color:#66748a;background:#f1f3f7;border-color:#e0e5ec}
+.badge.blue{color:var(--acc);background:var(--acc-soft);border-color:#d4e2fb}
+.badge.ok{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-line)}
+.badge.warn{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line)}
+.badge.err{color:var(--err);background:var(--err-bg);border-color:var(--err-line)}
+.badge.pulse::before{animation:blink 1.1s ease-in-out infinite}
+@keyframes blink{50%{opacity:.15}}
+
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:11.5px;color:var(--mut);font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);background:#f7f9fc;white-space:nowrap}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--line2);vertical-align:middle;font-size:13px}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tr:hover td{background:#fafbfe}
+.tbl .m{font-family:var(--mono);font-size:12px}
+.tbl .sub{color:var(--faint);font-size:11.5px;display:block}
+.txt{width:100%;border:1px solid #c9d2e0;border-radius:7px;padding:9px 11px;font-family:var(--sans);font-size:13.5px;color:var(--ink);background:#fff;resize:vertical}
+.txt:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+.lbl{font-size:12px;color:var(--mut);display:block;margin:10px 0 5px;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:1100px){.grid2,.grid3{grid-template-columns:1fr}}
+.chiprow{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#f1f4f9;border:1px solid var(--line);border-radius:20px;padding:3px 11px;font-size:12px;color:#33415a}
+.chip.x{border-color:#e6b5b0;color:var(--err);background:var(--err-bg);cursor:pointer}
+.empty{padding:34px 20px;text-align:center;color:var(--faint);font-size:13px}
+.empty .big{font-size:26px;margin-bottom:8px;opacity:.6}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:12.5px}
+.kv b{color:var(--mut);font-weight:600;white-space:nowrap}
+.kv div{color:var(--ink)}
+.stat{display:flex;gap:26px;padding:6px 0}
+.stat .n{font-size:20px;font-weight:700;font-family:var(--mono)}
+.stat .l{font-size:11.5px;color:var(--faint);margin-top:1px}
+.mini{font-size:12px;color:var(--mut)}
+.pbar{height:6px;background:#e8ecf3;border-radius:4px;overflow:hidden;min-width:80px}
+.pbar i{display:block;height:100%;background:var(--acc);border-radius:4px;transition:width .4s}
+.pbar.ok i{background:var(--ok)}
+.pbar.err i{background:var(--err)}
+.note{font-size:12px;color:var(--mut);background:#f7f9fc;border:1px dashed #d3dae5;border-radius:7px;padding:8px 12px}
+.filetag{font-family:var(--mono);font-size:11.5px;background:#0f1b2d;color:#9fd0a5;border-radius:5px;padding:2px 8px}
+a.clk{color:var(--acc);cursor:pointer;text-decoration:none}
+a.clk:hover{text-decoration:underline}
+
+/* checks */
+.ck{display:flex;gap:9px;align-items:flex-start;padding:6px 10px;border-radius:7px;font-size:12.5px;margin:2px 0}
+.ck .ic{font-family:var(--mono);font-weight:700;font-size:13px;line-height:1.3}
+.ck.ok{background:var(--ok-bg);color:var(--ok)}
+.ck.err{background:var(--err-bg);color:var(--err)}
+.ck .fx{margin-left:auto;white-space:nowrap}
+
+/* toasts */
+#toasts{position:fixed;top:64px;right:18px;z-index:400;display:flex;flex-direction:column;gap:8px;width:330px}
+.toast{background:#fff;border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;box-shadow:0 6px 20px rgba(20,35,60,.14);padding:10px 13px;font-size:12.8px;animation:tin .25s ease}
+.toast.ok{border-left-color:var(--ok)} .toast.warn{border-left-color:var(--warn)} .toast.err{border-left-color:var(--err)}
+.toast b{display:block;font-size:12.5px;margin-bottom:1px}
+@keyframes tin{from{opacity:0;transform:translateX(16px)}to{opacity:1}}
+
+/* modal */
+#overlay{position:fixed;inset:0;background:rgba(13,20,33,.55);z-index:300;display:none;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+#overlay.on{display:flex}
+.modal{background:#fff;border-radius:12px;width:760px;max-width:100%;box-shadow:0 24px 70px rgba(8,15,30,.4);animation:tin .22s ease}
+.modal.wide{width:980px}
+.modal-h{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line)}
+.modal-h h4{font-size:14.5px;font-weight:600}
+.modal-h .x{margin-left:auto;cursor:pointer;color:var(--faint);font-size:18px;padding:0 6px;border:0;background:none}
+.modal-h .x:hover{color:var(--err)}
+.modal-b{padding:16px 18px;max-height:72vh;overflow-y:auto}
+
+/* code viewer */
+.code{background:#0d1524;color:#d7e2f0;border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.62;overflow:auto;white-space:pre;margin:10px 0}
+.code .tg{color:#7fb1ff}.code .el{color:#c8a4ff}.code .at{color:#7ce3b5}.code .cm{color:#5d6f8c}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.tabs .t{padding:7px 15px;font-size:12.5px;cursor:pointer;border:0;background:none;color:var(--mut);border-bottom:2px solid transparent;font-family:var(--sans)}
+.tabs .t.on{color:var(--acc);border-bottom-color:var(--acc);font-weight:600}
+
+/* replay */
+#rpwrap{position:relative;background:#0b1220;border-radius:8px;overflow:hidden}
+#rp{display:block;width:100%;height:auto}
+#rpLive{display:block;width:100%;height:auto}
+.rp-ov{position:absolute;left:12px;top:10px;color:#9fb4d8;font-size:12px;font-family:var(--mono)}
+.rp-ov b{color:#fff}
+.rpctl{display:flex;align-items:center;gap:12px;margin-top:10px}
+.rpctl input[type=range]{flex:1;accent-color:var(--acc)}
+.rptime{font-family:var(--mono);font-size:13px;color:var(--acc);min-width:76px;text-align:right}
+.rpwrapL{position:relative;background:#0b1220;border-radius:8px;overflow:hidden}
+.evtbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.evt{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:20px;cursor:pointer;border:1px solid;user-select:none}
+.evt.ok{color:#8fe8b4;background:rgba(23,122,70,.15);border-color:rgba(124,227,181,.4)}
+.evt.ok:hover{border-color:#8fe8b4}
+.evt.bad{color:#ffb3a9;background:rgba(192,48,42,.18);border-color:rgba(255,157,143,.45);animation:blink 1.3s ease-in-out infinite}
+.evt.bad:hover{animation:none;border-color:#ffb3a9}
+.evt.mut{color:#9fb0c8;background:#1a2436;border-color:#2c3d59;cursor:default}
+/* 回放事件同步列表 */
+.evlist{margin-top:10px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fbfcfe}
+.evhead{display:flex;align-items:center;gap:6px;padding:7px 12px;font-size:12px;font-weight:600;color:var(--mut);background:#f3f6fa;border-bottom:1px solid var(--line)}
+.evrow{display:flex;align-items:center;gap:10px;padding:6px 12px;border-top:1px solid var(--line2);font-size:12px;cursor:pointer}
+.evrow:hover{background:#f4f7fc}
+.evrow:first-of-type{border-top:0}
+.evrow .et{font-family:var(--mono);font-size:11.5px;color:var(--faint);min-width:88px}
+.evrow .ec{font-family:var(--mono);font-size:11.5px;color:#42536b;min-width:130px}
+.evrow .en{flex:1;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.evrow .es{margin-left:auto;font-size:11.5px;color:var(--faint);white-space:nowrap}
+.evrow.hit.on{background:var(--ok-bg);animation:evpop .9s ease}
+.evrow.hit.on .es{color:var(--ok);font-weight:700}
+.evrow.miss.on{background:var(--err-bg);animation:evpop 1.4s ease infinite}
+.evrow.miss.on .es{color:var(--err);font-weight:700}
+.evrow.none.on{background:#e9eef7}
+.evrow.none.on .es{color:var(--mut)}
+@keyframes evpop{0%,100%{box-shadow:inset 0 0 0 2px transparent}35%{box-shadow:inset 0 0 0 2px rgba(29,95,214,.5)}}
+
+/* doc rows */
+.drow{display:flex;align-items:center;gap:12px;padding:10px 6px;border-bottom:1px solid var(--line2)}
+.drow:last-child{border-bottom:0}
+.drow .di{width:34px;height:34px;border-radius:8px;background:#f1f4f9;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+.drow .dn{font-size:13.5px;font-weight:600}
+.drow .ds{font-size:11.5px;color:var(--faint)}
+.drow .meta{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mut)}
+
+.pg-tip{font-size:12px;color:var(--faint);margin:2px 0 0 0}
+.steptitle{font-size:13px;font-weight:600;margin:14px 0 6px;display:flex;align-items:center;gap:8px}
+.steptitle .no{width:19px;height:19px;border-radius:50%;background:var(--acc-soft);color:var(--acc);font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- sidebar -->
+  <aside id="side">
+    <div class="brand">
+      <div class="mark">⚙</div>
+      <div><b>仿真测试自动化</b><small>SimTest Tool · 原型 v0.6</small></div>
+    </div>
+    <div class="nav" id="nav"></div>
+    <div class="sidefoot"><b>演示说明</b>：数据与格式已按真实模板对齐（pipeline/ 走通样例：想定/指令 JSON → 实体/事件态势 NDJSON），右上角「▶ 自动演示」可重播完整测试流程。</div>
+  </aside>
+
+  <!-- main -->
+  <div id="main">
+    <div id="top">
+      <button id="backBtn" class="btn sm sec" onclick="goBack()" disabled style="display:none">← 返回</button>
+      <div class="taskchip"><span class="tid">T-026</span><span class="tt">空空弹 WQ01 出版测试（发射后锁定 000681）</span></div>
+      <span class="ver">变更单 v1.2 · 出版前测试</span>
+      <div class="topspacer"></div>
+      <button id="autodemo" onclick="demoFlow()">▶ 自动演示全流程</button>
+      <div class="userchip"><span class="av">王</span>工程师·小王</div>
+    </div>
+    <div id="stepper"></div>
+    <div id="hint">✅ 界面原型 v0.6：已按真实模板对齐——想定/指令(JSON) → 仿真器(pipeline\simulator.js) → 实体/事件态势(NDJSON)；事件判读基于 cmreCode 事件码。演示数据为走通样例（脱敏），非真实生成结果。</div>
+    <div id="view"></div>
+  </div>
+</div>
+<div id="toasts"></div>
+<div id="overlay"></div>
+
+<script>
+/* ================= 状态与演示数据 ================= */
+var TASK={id:'T-026',name:'空空弹 WQ01 出版测试（发射后锁定 000681）'};
+
+/* 用例基线数据（title 等静态部分；动态阶段标记存于 flags） */
+var CASE_BASE=[
+ {id:'TC-01',title:'迎头拦截 · 发射-规则触发-命中全链路',cat:'功能边界',pri:'P1',sce:'迎头',
+  pre:'想定T026-01.json：蓝方 ZB01 制空平台（Blue，载 WQ01 空空弹×4）迎头接近红方 ZB02 制空平台（Red，直线巡航）。与 pipeline 走通样例同构。',
+  steps:['生成想定T026-01.json / 指令T026-01.json','字段级校验通过后提交运行队列','调用仿真器运行，收集实体态势/事件态势 NDJSON'],
+  exp:'事件态势中应按时刻产生：CMRE000000001(探测报告@20s) → CMRE000000002(武器发射@40s) → CMRE000000005(规则触发@43s) → CMRE000000003(命中毁伤@76.3s)；目标毁伤后退出仿真(CMRE000000006)。',
+  evs:[['CMRE000000001','探测报告事件','蓝方制空平台','00:20.000',1],['CMRE000000002','武器发射事件','蓝方制空平台→红方制空平台','00:40.000',1],['CMRE000000005','规则触发事件（发射后锁定）','蓝方制空平台','00:43.000',1],['CMRE000000003','产生实体毁伤事件','红方制空平台','01:16.300',1]]},
+ {id:'TC-02',title:'尾追攻击 · 规则触发域校验（存疑样例）',cat:'规则',pri:'P1',sce:'尾追',
+  pre:'想定T026-02.json：蓝方 ZB01 自目标后方尾追（同向），初始斜距较短；指令含 000681 规则动作。',
+  steps:['生成想定/指令文件并校验','提交运行','判读 CMRE000000005 规则触发事件'],
+  exp:'尾追构型下期望规则触发事件 CMRE000000005 产生（实际该规则触发域为迎头/高前置角）。',
+  evs:[['CMRE000000002','武器发射事件','蓝方制空平台→红方制空平台','00:52.000',1],['CMRE000000005','规则触发事件（发射后锁定）','蓝方制空平台','—',0],['CMRE000000003','产生实体毁伤事件','红方制空平台','02:14.000',1]]},
+ {id:'TC-03',title:'强干扰环境 · 抗干扰分支',cat:'抗干扰',pri:'P1',sce:'干扰',
+  pre:'想定T026-03.json：红方干扰实体对 ZB01 施压（干信比高），ZB01 抗干扰模式完成攻击。',
+  steps:['生成想定/指令文件并校验','提交运行（首次运行仿真器异常退出→重跑）','判读发射与命中事件'],
+  exp:'事件态势含 CMRE000000002(发射) 与 CMRE000000003(命中毁伤)。',
+  evs:[['CMRE000000002','武器发射事件','蓝方制空平台→红方制空平台','00:38.000',1],['CMRE000000003','产生实体毁伤事件','红方制空平台','01:58.000',1]]},
+ {id:'TC-04',title:'最小射程边界 · 许可窗口',cat:'边界',pri:'P2',sce:'低空',
+  pre:'想定T026-04.json：目标进入最小射程包线附近，验证许可窗口判定。',
+  steps:['生成想定/指令文件并校验','提交运行','判读告警报告与发射事件'],
+  exp:'最小射程窗口内先产生 CMRE000000001(边界报告)，随后 CMRE000000002(发射) 正常产生。',
+  evs:[['CMRE000000001','最小射程边界报告','蓝方制空平台','00:31.600',1],['CMRE000000002','武器发射事件（许可窗口内）','蓝方制空平台','00:35.200',1]]},
+ {id:'TC-05',title:'多目标饱和 · 通道分配',cat:'多目标',pri:'P2',sce:'饱和',
+  pre:'想定T026-05.json：红方多机编队进入，ZB01 按威胁度分配攻击通道。',
+  steps:['生成想定/指令文件并校验','提交运行','判读探测/发射/毁伤事件链'],
+  exp:'事件态势含多目标探测报告、对高威胁目标发射与命中毁伤事件。',
+  evs:[['CMRE000000001','多目标探测报告事件','8/8 目标','00:08.400',1],['CMRE000000002','武器发射事件','蓝方制空平台→高威胁目标','00:22.000',1],['CMRE000000003','产生实体毁伤事件','目标-01','01:30.000',1]]},
+ {id:'TC-06',title:'超包线发射指令 · 异常输入',cat:'异常输入',pri:'P2',sce:'包线外',
+  pre:'想定T026-06.json：构造超出动力射程包线的发射指令注入（异常输入用例）。',
+  steps:['生成想定/指令文件并校验','注入超包线发射指令','提交运行','判读发射事件是否被抑制'],
+  exp:'模型应拒绝发射：产生抑制报告(CMRE000000001)且不产生 CMRE000000002/CMRE000000003。缺陷表现为抑制报告缺失、发射未被拒绝。',
+  evs:[['CMRE000000001','超包线发射抑制报告（应产生）','蓝方制空平台','—',0],['CMRE000000002','武器发射事件（应被抑制）','—','—',0]]}
+];
+/* 初始未生成时每条 12 条的故事说明 */
+var GEN_NOTE='本次原始生成 12 条（建议稿）；人工审定删除重复 3 条、合并语义重叠 2 条、修订 1 条，保留 6 条提交。';
+
+/* 运行页面用：首次运行 TC-03 仿真器异常退出的日志 */
+var FAIL_LOG_TC03='[FATAL] simulator exit code -1073741819 @ t=231.4s\n[STACK] 交战模块 / 干扰计算子模块 浮点异常 (WQ01 guidance)\n[CONTEXT] 想定T026-03.json / 指令T026-03.json, 种子 20260903\n→ 疑似仿真器数值偶发异常，建议固定种子复跑核对';
+
+var ISSUE_BASE=[
+ {id:'ISSUE-01',case:'TC-02',t:'期望事件缺失',txt:'尾追场景下事件态势未检索到 CMRE000000005（规则触发事件：「发射后锁定」规则 000681 未触发）。',
+  reason:'规则 000681 触发域为迎头/高前置角，用例尾追条件与该规则触发域不匹配——属于用例条件偏差，非模型缺陷。',
+  type:'用例条件偏差',st:'open',auto:'初判建议：修订用例条件（改为迎头/高前置角构型）后重跑'},
+ {id:'ISSUE-02',case:'TC-06',t:'缺陷确认',txt:'超包线发射指令未被拒绝：未产生抑制报告(CMRE000000001)，且发射流程照常执行。',
+  reason:'模型未实现包线外发射抑制与告警分支——疑似模型缺陷，需转缺陷单。',
+  type:'疑似模型缺陷',st:'open',auto:'初判建议：人工确认是否为缺陷；若确认，转缺陷单并遗留至下版'}
+];
+
+/* ================= v0.6 真实模板对齐常量（源自 pipeline/ 走通样例） ================= */
+/* 事件码字典（与 config/事件码字典_demo.json 一致；CMRE000000001/003 取自模板样例语义，其余为演示编码） */
+var CMRE_DICT={
+ 'CMRE000000001':{name:'探测报告事件',kind:'Report',desc:'平台发现/跟踪目标并上报'},
+ 'CMRE000000002':{name:'武器发射事件',kind:'Report',desc:'执行武器发射动作，含武器类型/数量'},
+ 'CMRE000000003':{name:'产生实体毁伤事件',kind:'Report',desc:'武器命中并毁伤目标，含 damagePercent/damageLevel'},
+ 'CMRE000000004':{name:'动作实例执行',kind:'inst',desc:'用于 instCode / ECActionState.ActID'},
+ 'CMRE000000005':{name:'规则触发事件',kind:'Log',desc:'行为规则被触发，如「发射后锁定」规则 000681'},
+ 'CMRE000000006':{name:'实体退出仿真事件',kind:'Report',desc:'实体因毁伤等原因退出仿真'}
+};
+/* 期望事件未给出时刻时的默认预期时刻（秒）——真实判读按事件文件实际记录 */
+function fallT(code){var m={CMRE000000001:20,CMRE000000002:35,CMRE000000003:110,CMRE000000005:43,CMRE000000006:115};return m[code]!=null?m[code]:60;}
+/* 走通路真实运行产物（pipeline/outputs/实体态势_demo.ndjson，帧间隔10s；B=蓝方ZB01 60帧，R=红方ZB02 7帧，M1/M2=两枚WQ01 各4帧） */
+var REAL_TRK={
+ B:[[120.125758,30.207064],[120.151743,30.213485],[120.177948,30.2192],[120.204365,30.224139],[120.230978,30.228222],[120.257763,30.231359],[120.284685,30.233445],[120.311692,30.234441],[120.338712,30.235181],[120.365732,30.23592],[120.392753,30.23666],[120.419773,30.2374],[120.446794,30.238139],[120.473815,30.238879],[120.500836,30.239618],[120.527857,30.240358],[120.554879,30.241098],[120.581901,30.241837],[120.608923,30.242577],[120.635945,30.243316],[120.662967,30.244056],[120.68999,30.244796],[120.717012,30.245535],[120.744035,30.246275],[120.771059,30.247014],[120.798082,30.247754],[120.825106,30.248493],[120.852129,30.249233],[120.879153,30.249973],[120.906177,30.250712],[120.933202,30.251452],[120.960226,30.252191],[120.987251,30.252931],[121.014276,30.253671],[121.041301,30.25441],[121.068327,30.25515],[121.095352,30.255889],[121.122378,30.256629],[121.149404,30.257369],[121.176431,30.258108],[121.203457,30.258848],[121.230484,30.259587],[121.25751,30.260327],[121.284537,30.261066],[121.311565,30.261806],[121.338592,30.262546],[121.36562,30.263285],[121.392648,30.264025],[121.419676,30.264764],[121.446704,30.265504],[121.473732,30.266244],[121.500761,30.266983],[121.52779,30.267723],[121.554819,30.268462],[121.581848,30.269202],[121.608878,30.269942],[121.635907,30.270681],[121.662937,30.271421],[121.689967,30.27216],[121.716998,30.2729]],
+ R:[[120.791452,30.379741],[120.775663,30.358475],[120.759875,30.337208],[120.744087,30.315941],[120.728298,30.294674],[120.71251,30.273408],[120.740199,30.258185]],
+ M1:[[120.194365,30.230139],[120.245212,30.237748],[120.29606,30.245357],[120.346908,30.252966]],
+ M2:[[120.214365,30.224139],[120.265212,30.231748],[120.31606,30.239357],[120.366908,30.246966]]
+};
+var REAL_EV=[
+ {t:20,code:'CMRE000000001',side:'Blue',src:'蓝方制空平台',target:'红方制空平台'},
+ {t:40,code:'CMRE000000002',side:'Blue',src:'蓝方制空平台',target:'红方制空平台'},
+ {t:43,code:'CMRE000000005',side:'Blue',src:'蓝方制空平台',target:''},
+ {t:76.3,code:'CMRE000000003',side:'Red',src:'红方制空平台',target:'某型空空弹'},
+ {t:76.3,code:'CMRE000000006',side:'Red',src:'红方制空平台',target:''}
+];
+var REAL_META={xdnm:'想定_demo.json',rules:'指令_demo.json',st:'2027-01-01 10:00:00',en:'2027-01-01 10:10:00',hitT:76.3};
+/* 想定/指令文件节选预览（完整文件见 pipeline/inputs/） */
+var XD_PRE='{\n  "cjlx": "DEMO_KONGZHAN",\n  "startTime": "2027-01-01 10:00:00",\n  "endTime": "2027-01-01 10:10:00",\n  "ybnm": "1-DEMO03_AB12CD34_01",\n  "yb": [\n    { "dwsxnm": "01",\n      "data": { "resource": { "trooplist": [\n        { "bzmc": "蓝方编队A", "jd": 120.1, "wd": 30.2, "gc": 8000.0,\n          "lstEquip": [\n            { "lxzymc": "蓝方制空平台", "mxlx": "MX01",\n              "mxnm": "CMRM0300000000001", "sl": 1,\n              "zyId": "CMRM0300000000001_00000001_00000002_00001",\n              "ammo": [ { "lxzymc": "某型空空弹", "mxnm": "WQ01", "sl": 4 } ]\n            } ] } ] } } },\n    { "dwsxnm": "02",\n      "data": { "resource": { "trooplist": [\n        { "bzmc": "红方机场", "jd": 120.9, "wd": 30.5, "gc": 0.0, "lstEquip": [ { "lxzymc": "某机场", "mxnm": "CMRM0300000000003", "sl": 1 } ] },\n        { "bzmc": "红方编队B", "jd": 120.8, "wd": 30.4, "gc": 8000.0, "lstEquip": [ { "lxzymc": "红方制空平台", "mxnm": "CMRM0300000000002", "sl": 1 } ] }\n      ] } } }\n  ]\n}\n（节选；环境树 kjhjList/链路 config 等字段同模板，完整样例 421 行）';
+var ZL_PRE='{\n  "rules": [\n    { "fanm": "3f9c2ab8e1d04756a2b8c4d6e0f1a2b3",\n      "ybnm": "1-DEMO03_AB12CD34_01",\n      "ruledata": [ { "action": [\n        { "action_id": "BLUE_ZB01_ATK_1", "rule_type_code": "000680",\n          "executor": [ { "executor_id": "BLUE_ZB01_1",\n            "formation_struct": [ { "formation_id": "ZB01_1", "entity_count": 1,\n              "entity_name": "蓝方制空平台", "entity_type": "ZB01" } ],\n            "mount": [ { "mount_type": "WQ01", "mount_type_name": "某型空空弹", "num": 4 } ] } ],\n          "target": [ { "target_id": "ZB02_1", "target_name": "红方制空平台" } ],\n          "launch": [ { "target_id": "ZB02_1", "weapon_type": "WQ01", "weapon_num": 2, "way_points": [] } ],\n          "start_time": 40, "end_time": 590 },\n        { "action_id": "BLUE_ZB01_LOCK_1", "rule_type_code": "000681",\n          "executor": [ { "executor_id": "BLUE_ZB01_1", "formation_struct": [ { "formation_id": "ZB01_1", "entity_type": "ZB01" } ] } ],\n          "target": [ { "target_id": "ZB02_1" } ], "start_time": 43, "end_time": 590 }\n      ], "ruleconfig": [ { "is_auto_attack": true,\n        "radar_detect_mode": { "detect_mode": "scan", "target_list": ["0000000001785395000000000000000003"] } } ] } ] }\n  ]\n}\n（节选；region/route/干扰等可选分支按动作类型删减，完整样例 163 行）';
+
+/* 动态状态（单任务演示） */
+var S={
+ page:'tasks',desc:'',descGen:false,genLoading:false,
+ approved:false,scGen:false,scLoading:false,scSubmitted:false,
+ runActive:false,runDone:false,runStarted:false,
+ verdictDone:false,docsDone:false,docGen:false,docLoading:false,
+ auto:false,cases:null,issues:null,hist:[]
+};
+
+function deepCases(){ return JSON.parse(JSON.stringify(CASE_BASE)).map(function(c){ c.appr=false;c.sc=false;c.scErr=false;
+  c.run='idle';c.prog=0;c.verdict='pending';c.vnote='';c.evsOk=null; return c; }); }
+function bootCompleted(){
+  S.desc='新增空空弹 WQ01（含发射后锁定导引，射程/制导参数同映射库）；新增「发射后锁定」规则(rule_type_code=000681)，影响空对空交战模块的制导与命中判定；请覆盖迎头/尾追、干扰、多目标与超包线异常输入场景。';
+  S.descGen=true;S.approved=true;S.scGen=true;S.scSubmitted=true;S.runDone=true;S.runStarted=true;S.verdictDone=true;
+  S.cases=deepCases();
+  CASE_BASE.forEach(function(b,i){var c=S.cases[i];c.appr=true;c.sc=true;c.scErr=false;
+    c.run='ok';c.prog=100; c.evsOk=b.evs.map(function(e){return e[4]===1;});});
+  /* 默认任务停在"判读完成"，供直接浏览各页面 */
+  S.cases.forEach(function(c,i){if(i===1){c.verdict='pass';c.vnote='经回放复核：该规则触发域为迎头/高前置角，尾追条件不匹配。已修订用例为高前置角场景并重跑，事件命中，判定通过。';}
+    else if(i===5){c.verdict='fail';c.vnote='人工确认缺陷：超包线发射未抑制、无告警事件。转缺陷单 DEF-20260903-01，遗留至下版，本版不通过。';}
+    else{c.verdict='pass';c.vnote='自动判读与人工复核一致。';}});
+  S.issues=JSON.parse(JSON.stringify(ISSUE_BASE));
+  S.issues[0].st='resolved';S.issues[0].res='用例条件修订后重跑通过（TC-02 判定通过）。';
+  S.issues[1].st='confirmed';S.issues[1].res='已确认缺陷并转单 DEF-20260903-01，遗留处理。';
+}
+function resetFlow(){
+  S.descGen=false;S.approved=false;S.scGen=false;S.scSubmitted=false;
+  S.runActive=false;S.runDone=false;S.runStarted=false;S.verdictDone=false;S.docsDone=false;S.docGen=false;S.docLoading=false;
+  S.cases=deepCases();S.issues=JSON.parse(JSON.stringify(ISSUE_BASE));
+  toast('已重置为流程起点（需求描述阶段）','warn');
+}
+bootCompleted();
+
+/* ================= 导航 ================= */
+var PAGES=[
+ {k:'tasks',label:'任务列表',fr:'FR-1~5'},
+ {k:'gen',label:'需求与生成',fr:'FR-1'},
+ {k:'scen',label:'想定构建',fr:'FR-2'},
+ {k:'run',label:'批量运行',fr:'FR-3'},
+ {k:'verdict',label:'结果判读',fr:'FR-4'},
+ {k:'docs',label:'过程文档',fr:'FR-5'},
+ {k:'tpl',label:'模板管理',fr:'FR-6'}
+];
+function navHtml(){return PAGES.map(function(p){return '<a data-nav="'+p.k+'" class="'+(S.page===p.k?'on':'')+'"><span class="dot"></span>'+p.label+'<span class="fr">'+p.fr+'</span></a>';}).join('');}
+function stepIdx(){
+  if(!S.descGen)return 0;
+  if(!S.approved)return 1;
+  if(!S.scSubmitted)return 2;
+  if(!S.runDone)return 3;
+  if(!S.verdictDone)return 4;
+  if(!S.docsDone)return 5;
+  return 6;
+}
+var STEPS=['需求描述','用例审定','想定构建','批量运行','结果判读','过程文档'];
+function stepperHtml(){var idx=stepIdx();var h='';
+  STEPS.forEach(function(s,i){var st=i<idx?'done':(i===idx?'on':'');var lb=i===idx&&idx<6?STEPS[i]:(i<idx?STEPS[i]:STEPS[i]);
+    if(i>0)h+='<span class="bar '+(i<=idx?'done':'')+'"></span>';
+    h+='<div class="stp '+st+'"><span class="ci">'+(i<idx?'✓':(i+1))+'</span><span class="lb">'+lb+'</span></div>';});
+  if(idx===6)h+='<span class="bar done"></span><div class="stp done"><span class="ci">✓</span><span class="lb">文档归档</span></div>';
+  return h;}
+
+function renderShell(){document.getElementById('nav').innerHTML=navHtml();document.getElementById('stepper').innerHTML=stepperHtml();
+  var bb=document.getElementById('backBtn');
+  if(bb){if(S.hist&&S.hist.length){bb.style.display='';bb.disabled=false;
+    var last=S.hist[S.hist.length-1];var lb=(PAGES.find(function(p){return p.k===last;})||{}).label||'';
+    bb.innerHTML='← 返回'+(lb?'：'+lb:'');}
+    else{bb.style.display='none';bb.disabled=true;bb.innerHTML='← 返回';}}}
+function goPage(k){if(k===S.page){renderShell();renderView();return;}
+  if(S.hist.length>20)S.hist.shift();
+  S.hist.push(S.page);S.page=k;location.hash='#/'+k;renderShell();renderView();}
+function goBack(){if(!S.hist.length){toast('已无上级页面','warn');return;}
+  var k=S.hist.pop();S.page=k;location.hash='#/'+k;renderShell();renderView();
+  var lb=(PAGES.find(function(p){return p.k===k;})||{}).label||k;
+  toast('← 已返回：'+lb,'ok');}
+window.addEventListener('hashchange',function(){var k=(location.hash||'#/tasks').replace('#/','');if(!PAGES.some(function(p){return p.k===k;}))k='tasks';
+  if(k===S.page)return;
+  if(S.hist.length&&S.hist[S.hist.length-1]===k){S.hist.pop();}else{S.hist.push(S.page);}
+  S.page=k;renderShell();renderView();});
+document.addEventListener('click',function(e){
+  var n=e.target.closest('[data-nav]');if(n){goPage(n.dataset.nav);return;}
+  var b=e.target.closest('[data-act]');if(!b)return;
+  var fn=window['act_'+b.dataset.act];if(fn)fn(b);
+});
+
+/* ================= 通用 ================= */
+function $(id){return document.getElementById(id);}
+function toast(msg,type){var t=document.createElement('div');t.className='toast '+(type||'');t.innerHTML=msg; $('toasts').appendChild(t);setTimeout(function(){t.style.opacity='0';t.style.transition='opacity .4s';},3600);setTimeout(function(){t.remove();},4100);}
+function badge(type,txt){return '<span class="badge '+type+'">'+txt+'</span>';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function openModal(html,wide){var o=$('overlay');o.innerHTML='<div class="modal '+(wide?'wide':'')+'"><div class="modal-h"><h4 id="mTitle"></h4><button class="x" onclick="closeModal()">✕</button></div><div class="modal-b" id="mBody"></div></div>';o.classList.add('on');$('mBody').innerHTML=html;}
+function closeModal(){$('overlay').classList.remove('on');$('overlay').innerHTML='';if(S.page==='verdict'&&S.runDone){ensureLive();RP2.play=true;}}
+$('overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+function renderView(){var fn={tasks:vTasks,gen:vGen,scen:vScen,run:vRun,verdict:vVerdict,docs:vDocs,tpl:vTpl}[S.page];$('view').innerHTML='<div class="wrap">'+fn()+'</div>';$('view').scrollTop=0;
+  if(S.page==='verdict'&&S.runDone){ensureLive();}else{RP2.play=false;}}
+function curCases(){return S.cases||[];}
+function approvedCases(){return curCases().filter(function(c){return c.appr;});}
+function caseBadge(c,ctx){
+  if(ctx==='run'){
+    if(c.run==='run')return badge('blue pulse','运行中');
+    if(c.run==='fail')return badge('err','运行失败');
+    if(c.run==='ok')return badge('ok','运行成功');
+    if(c.run==='queue')return badge('mut','排队');
+    return badge('mut','就绪');
+  }
+  if(c.verdict==='fail')return badge('err','不通过');
+  if(c.verdict==='pass')return badge('ok','通过');
+  if(c.verdict==='suspect')return badge('warn pulse','存疑');
+  if(c.run==='fail')return badge('err','运行失败');
+  if(c.run==='ok')return badge('mut','待判读');
+  if(c.scErr)return badge('err','校验未过');
+  if(c.sc)return badge('blue','想定已生成');
+  if(c.appr)return badge('blue','已审定');
+  return badge('mut','建议稿');
+}
+
+/* ================= 页面 A 任务列表 ================= */
+function vTasks(){
+  var t2=S.docsDone?'判读完成':(S.runDone?'判读中':(S.scSubmitted?'运行准备':'进行中'));
+  var rows=[
+   {id:'T-027',name:'规则库 v2.4 新增强制移交规则 出版测试',n:'—',st:'草稿',stT:'mut',act:'继续',cls:'ghost'},
+   {id:'T-026',name:'空空弹 WQ01 出版测试（发射后锁定 000681）',n:'6 用例 · 5 通过 / 1 不通过(缺陷遗留)',st:t2,stT:'warn',act:S.docsDone?'查看归档':'继续',cls:'pri'},
+   {id:'T-025',name:'雷达模型 R-88 探测距离修正 出版测试',n:'8/8 通过',st:'已完成',stT:'ok',act:'复现',cls:'ghost'},
+   {id:'T-024',name:'火力单元调度规则 回归测试',n:'12/12 通过',st:'已完成',stT:'ok',act:'查看',cls:'ghost'}
+  ];
+  var h='<div class="phead"><h2>任务列表</h2><span class="desc">选择或新建出版测试任务，全程在单任务工作台内推进</span></div>';
+  h+='<div class="card"><div class="card-h"><h3>测试任务</h3><span class="sub">共 4 个 · 全部为本年度出版测试</span><div style="margin-left:auto;display:flex;gap:8px"><input class="txt" id="taskSearch" placeholder="搜索任务…" style="width:220px;padding:6px 10px" oninput="filterTasks(this.value)"><button class="btn pri" onclick="newTask()">+ 新建测试任务</button></div></div><div class="card-b" style="padding:6px 10px"><table class="tbl"><thead><tr><th style="width:80px">任务</th><th>被测变更摘要</th><th style="width:210px">用例进度</th><th style="width:90px">阶段</th><th style="width:70px">更新</th><th style="width:110px">操作</th></tr></thead><tbody id="taskBody">'+rows.map(function(r){return '<tr data-search="'+esc(r.name+r.id)+'"><td class="m">'+r.id+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.n)+'</td><td>'+badge(r.stT,r.st)+'</td><td class="m" style="color:var(--faint)">09-03</td><td><a class="clk" onclick="goTask(\''+r.id+'\')">'+r.act+'</a></td></tr>';}).join('')+'</tbody></table></div></div>';
+  h+='<div class="card"><div class="card-h"><h3>流程导航说明</h3><span class="sub">对应需求说明文档第 9.3 节界面操作演示</span></div><div class="card-b"><div class="stat">'+[
+    ['1','需求与生成','文字描述 → 大模型生成测试方案与用例'],
+    ['2','想定构建','用例 → 自动构建想定/方案 + 字段严格校验'],
+    ['3','批量运行','仿真器批量执行 · 产物自动归档'],
+    ['4','结果判读','事件判读 + 状态回放 · 问题闭环'],
+    ['5','过程文档','规范模板一键生成 · 全链路追溯']
+   ].map(function(s){return '<div><div class="n">'+s[0]+'</div><div class="l">'+s[1]+'<br>'+s[2]+'</div></div>';}).join('')+'</div><p class="pg-tip" style="margin-top:10px">💡 点击右上角「▶ 自动演示全流程」，将以 T-026 为样例从头到尾重播：需求描述 → 用例生成审定 → 想定/方案构建校验 → 批量运行（含一次失败重跑）→ 判读复核 → 文档归档。</p></div></div>';
+  return h;
+}
+function filterTasks(v){document.querySelectorAll('#taskBody tr').forEach(function(tr){tr.style.display=tr.dataset.search.indexOf(v)>=0?'':'none';});}
+function newTask(){S.desc='';S.descGen=false;bootCompleted&&0;resetFlow();goPage('gen');toast('已创建 <b>T-027</b> 草稿任务，请在需求与生成页粘贴变更描述','ok');}
+function goTask(id){if(id==='T-027'){newTask();}else{goPage('verdict');}}
+
+/* ================= 页面 B 需求与生成 (FR-1) ================= */
+function vGen(){
+  var h='<div class="phead"><h2>需求与生成</h2><span class="tag">FR-1</span><span class="desc">文字描述 → 测试方案与用例（大模型生成 · 人工审定）</span></div>';
+  /* 描述输入 */
+  h+='<div class="card"><div class="card-h"><h3>① 被测变更文字描述</h3><span class="sub">支持粘贴变更单/评审意见</span></div><div class="card-b">';
+  h+='<textarea class="txt" id="descBox" rows="3" style="min-height:86px" placeholder="例：新增空空弹 WQ01……新增「发射后锁定」规则 000681……请覆盖迎头/尾追/干扰/异常输入……">'+esc(S.desc)+'</textarea>';
+  h+='<div class="chiprow" style="margin-top:12px"><span class="chip">被测对象类型：<b style="color:var(--acc)">模型 + 规则</b></span><span class="chip">影响模块：空对空交战</span><span class="chip">关联回归用例：T-025 中 4 条</span><span class="chip">LLM：内网推理服务 v2</span>';
+  h+='<div style="margin-left:auto">';
+  if(S.descGen&&S.approved){h+='<button class="btn sec" onclick="revokeApprove()">↩ 退回修订</button> ';}
+  h+='<button class="btn pri" onclick="act_generate()" '+(S.genLoading?'disabled':'')+'>'+(S.genLoading?'<span class="spin"></span> 正在生成…':(S.descGen?'↻ 重新生成方案与用例':'✦ 生成测试方案与用例'))+'</button></div></div>';
+  h+='</div></div>';
+  if(!S.descGen){h+='<div class="card"><div class="empty"><div class="big">✎</div>输入变更描述后点击「生成测试方案与用例」，工具将调用大模型产出测试方案与用例集。<br><span class="mini">可点击右上角「▶ 自动演示全流程」观看完整演示</span></div></div>';return h;}
+  var cs=curCases();
+  h+='<div class="grid2">';
+  /* 方案 */
+  h+='<div class="card"><div class="card-h"><h3>② 测试方案</h3><span class="badge blue">已生成</span></div><div class="card-b"><div class="steptitle"><span class="no">1</span>测试范围</div><p class="mini">被测对象：空空弹 WQ01 制导模型、「发射后锁定」规则(000681)、空对空交战模块集成行为；覆盖事件态势 cmreCode 全链（探测→发射→规则→毁伤→退出）。</p>';
+  h+='<div class="steptitle"><span class="no">2</span>测试策略</div><p class="mini">按 功能-规则-抗干扰-边界-异常输入 五维覆盖；迎头（规则触发域内）/尾追（触发域外）各 1 组；随机种子固定可复现；期望事件以事件态势 cmreCode + srcID + 时间窗口判读为准。</p>';
+  h+='<div class="steptitle"><span class="no">3</span>用例设计思路</div><p class="mini">射程双边界（最大/最小）、制导与规则触发（迎头/尾追）、对抗环境（强干扰）、饱和目标（通道分配）、非法输入（超包线发射）。</p>';
+  h+='<p class="pg-tip">↳ 生成依据：变更描述 + 内置测试维度知识库 + 事件判读闭环要求</p></div></div>';
+  /* 用例表 */
+  h+='<div class="card"><div class="card-h"><h3>③ 用例集（'+cs.length+' 条）</h3>';
+  if(S.approved){h+=badge('ok','已审定 '+(S.docsDone?'':'留痕：工程师·小王 09-03 10:24'));}else{h+=badge('warn','建议稿 · 待审定');}
+  h+='</div><div class="card-b" style="padding:6px 10px"><p class="mini" style="padding:4px 6px 8px">'+GEN_NOTE+'</p>';
+  h+='<table class="tbl"><thead><tr><th>用例</th><th>标题</th><th style="width:90px">优先级</th><th style="width:120px">期望关键事件</th><th style="width:100px">状态</th><th style="width:150px">操作</th></tr></thead><tbody>';
+  cs.forEach(function(c){var evn=c.evs.length+' 个';
+    h+='<tr><td class="m">'+c.id+'</td><td>'+esc(c.title)+'</td><td>'+badge(c.pri==='P1'?'err':'warn',c.pri)+'</td><td class="m" style="font-size:11.5px">'+evn+'<span class="sub">'+c.evs.map(function(e){return e[0];}).join(' / ')+'</span></td><td>'+caseBadge(c)+'</td><td>';
+    h+='<a class="clk" onclick="caseDetail(\''+c.id+'\')">详情/修订</a> ';
+    if(!S.approved)h+='<a class="clk" style="color:var(--err)" onclick="delCase(\''+c.id+'\')">删除</a>';
+    h+='</td></tr>';});
+  h+='</tbody></table><div style="padding:10px 4px 4px;display:flex;gap:8px;align-items:center">';
+  if(!S.approved){h+='<button class="btn sec sm" onclick="addCase()">+ 手工加用例</button><div style="flex:1"></div><button class="btn ok" onclick="approveCases()">✓ 提交审定（'+cs.length+' 条 → 进入想定构建）</button>';}
+  else{h+='<div style="flex:1"></div><button class="btn pri" onclick="goPage(\'scen\')">下一步：想定构建 →</button>';}
+  h+='</div></div></div>';
+  h+='</div>';
+  return h;
+}
+function act_generate(){if(S.auto)return;if(!$('descBox').value.trim()){toast('请先输入被测变更文字描述','err');return;}
+  S.desc=$('descBox').value.trim();S.genLoading=true;renderView();
+  setTimeout(function(){S.genLoading=false;S.descGen=true;S.cases=deepCases();S.cases.forEach(function(c){c.appr=false;});renderView();toast('<b>生成完成</b>：测试方案 + 12 条用例（建议稿）。请人工审定，删除/修订后提交。','ok');},1600);}
+function caseDetail(id){var c=curCases().find(function(x){return x.id===id;});var b=CASE_BASE.find(function(x){return x.id===id;});
+  openModal('<div style="display:flex;gap:18px"><div style="flex:1"><span class="lbl">用例编号 / 标题</span><input class="txt" id="edTitle" value="'+esc(c.title)+'"><span class="lbl">前置条件（想定要素）</span><textarea class="txt" id="edPre" rows="4">'+esc(b.pre)+'</textarea><span class="lbl">操作步骤</span><textarea class="txt" id="edSteps" rows="3">'+esc(b.steps.join('\n'))+'</textarea><span class="lbl">期望结果</span><textarea class="txt" id="edExp" rows="3">'+esc(b.exp)+'</textarea></div><div style="flex:1"><span class="lbl">期望关键事件（判读依据）</span>'+
+  c.evs.map(function(e,i){return '<div style="display:flex;gap:6px;margin:4px 0"><input class="txt m" style="width:150px" value="'+e[0]+'" disabled><input class="txt" style="flex:1" value="'+esc(e[1])+'" disabled><button class="btn danger sm" onclick="toast(\'原型：事件结构由事件字典约束，删除在后续版本支持\',\'warn\')">✕</button></div>';}).join('')+
+  '<p class="pg-tip" style="margin-top:8px">期望关键事件将作为 FR-4 自动判读的检索条件（事件码+对象+时间窗口）。</p></div></div><div style="text-align:right;margin-top:14px"><button class="btn sec" onclick="closeModal()">取消</button> <button class="btn pri" onclick="saveDetail(\''+c.id+'\')">保存修订</button></div>');
+  $('mTitle').textContent='用例详情 / 修订 · '+c.id;}
+function saveDetail(id){var c=curCases().find(function(x){return x.id===id;});c.title=$('edTitle').value;toast('<b>'+c.id+'</b> 已保存修订（留痕：工程师·小王）','ok');closeModal();renderView();}
+function delCase(id){curCases().splice(curCases().findIndex(function(x){return x.id===id;}),1);renderView();toast('<b>'+id+'</b> 已删除','warn');}
+function addCase(){var n=curCases().length+1;var id='TC-'+String(n).padStart(2,'0');while(curCases().some(function(c){return c.id===id;})){n++;id='TC-'+String(n).padStart(2,'0');}
+  curCases().push({id:id,title:'（新手工用例）待补充',cat:'—',pri:'P2',sce:'—',pre:'',steps:[],exp:'',evs:[['','待定义','','',1]],appr:false,sc:false,scErr:false,run:'idle',prog:0,verdict:'pending',vnote:'',evsOk:null});
+  renderView();toast('已新增 <b>'+id+'</b>（建议稿），点击「详情/修订」补充内容','ok');}
+function approveCases(){if(!curCases().length){toast('用例集为空，无法提交','err');return;}S.approved=true;S.cases.forEach(function(c){c.appr=true;});renderView();renderShell();toast('<b>已提交审定</b>：'+curCases().length+' 条用例留痕归档，进入想定构建环节','ok');}
+function revokeApprove(){S.approved=false;S.scGen=false;S.scSubmitted=false;S.cases.forEach(function(c){c.appr=false;c.sc=false;c.scErr=false;c.run='idle';c.prog=0;c.verdict='pending';});S.runDone=false;S.verdictDone=false;S.docsDone=false;renderView();toast('已退回修订，下游生成结果一并清空','warn');}
+
+/* ================= 页面 C 想定构建 (FR-2) ================= */
+function checksHtml(c){
+  var rows=[['✓','JSON 结构合规（无注释残留/尾逗号，键名按模板）','ok'],['✓','格式合规（38位实体ID / 相对秒起止 / 6位小数字符串）','ok'],['✓','严格匹配：指令 executor.entity_type = ZB01 ↔ 想定 lstEquip.mxnm=CMRM0300000000001（映射 ZB01）','ok'],['✓','弹药挂载：mount.mount_type WQ01 ↔ 想定 ammo.mxnm=WQ01（库存 4 ≥ weapon_num 2）','ok'],['✓','时间窗口：action.start_time 40 / end_time 590 ⊆ 想定 [0,600]s','ok']];
+  if(c.id==='TC-02'&&c.scErr){rows.push(['✘','规则-期望事件可达：期望 CMRE000000005(规则触发) 对应 rule_type_code=000681 动作未配置 → 尾追构型下事件无法产生','err']);}
+  else{rows.push(['✓','规则-期望事件可达：rule_type_code=000681 已配置于指令 rules[0]','ok']);}
+  return rows.map(function(r,i){var fix=r[2].indexOf('✘')>=0;
+    return '<div class="ck '+r[2]+'"><span class="ic">'+r[0]+'</span><span>'+r[1]+(fix?'<span style="display:block;color:var(--mut);font-size:11.5px">建议：在指令 rules[] 中追加 rule_type_code=000681 动作（仅迎头/高前置角触发域），或修订用例构型</span>':'')+'</span>'+(fix?'<button class="btn sm sec fx" onclick="autoFix(\''+c.id+'\')">⚡ 自动修正</button>':'')+'</div>';}).join('');}
+function vScen(){
+  var cs=approvedCases();
+  var h='<div class="phead"><h2>想定与方案构建</h2><span class="tag">FR-2</span><span class="desc">用例 → 想定(想定模版.json)/指令(指令模版.json) 自动构建 · 模板字段严格校验（样例已按真实模板对齐）</span></div>';
+  h+='<div class="card"><div class="card-b"><div class="chiprow">';
+  cs.forEach(function(c){h+='<span class="chip">☑ '+c.id+' '+esc(c.title)+'</span>';});
+  h+='</div><div class="chiprow" style="margin-top:10px"><span class="chip">想定模板：<b class="m">想定模版.json</b><span class="badge ok">样例已对齐</span></span><span class="chip">指令模板：<b class="m">指令模版.json</b><span class="badge ok">样例已对齐</span></span><span class="chip">映射规则库：v2（走通样例）</span>';
+  var errN=cs.filter(function(c){return c.scErr;}).length;
+  h+='<div style="margin-left:auto">';
+  if(S.scGen){h+='<button class="btn '+(errN?'ok':'sec')+' sm" onclick="autoFixAll()" '+(errN?'':'disabled')+'>⚡ 一键自动修正（'+errN+' 项）</button> ';}
+  h+='<button class="btn sec sm" onclick="toast(\'模板管理见「模板管理」页；样例文件 pipeline/inputs/想定_demo.json / 指令_demo.json\',\'warn\')">模板/映射配置…</button> ';
+  h+='<button class="btn pri" onclick="act_genSc()" '+(S.scLoading?'disabled':'')+'>'+(S.scLoading?'<span class="spin"></span> 正在生成…':(S.scGen?'↻ 重新生成':'▶ 一键生成想定与指令'))+'</button></div></div></div></div>';
+  if(!S.scGen){h+='<div class="card"><div class="empty"><div class="big">🗺</div>点击「一键生成想定与指令」：为 '+cs.length+' 条已审定用例自动生成想定文件与指令文件，<br>并按模板执行结构 / 格式 / <b>严格匹配</b>三类字段校验。<br><span class="mini">生成文件：想定T026-0N.json + 指令T026-0N.json（样例结构同 pipeline/inputs/）</span></div></div>';return h;}
+  cs.forEach(function(c){
+    var ok=!c.scErr;
+    h+='<div class="card"><div class="card-h"><h3>'+c.id+' · '+esc(c.title)+'</h3>';
+    h+=ok?badge('ok','校验通过'):badge('err','1 项未通过');
+    h+='<span class="sub" style="margin-left:auto"></span></div><div class="card-b">';
+    h+='<div class="chiprow" style="margin-bottom:10px"><span class="filetag">想定T026-'+c.id.slice(3)+'.json</span><span class="filetag">指令T026-'+c.id.slice(3)+'.json</span>';
+    h+='<a class="clk" style="margin-left:6px" onclick="viewFiles(\''+c.id+'\')">预览文件内容</a> <a class="clk" onclick="toast(\'原型：版本 diff 待接入\',\'warn\')">与上版 diff</a></div>';
+    h+=checksHtml(c);
+    h+='</div></div>';});
+  var allOk=cs.every(function(c){return c.sc&&!c.scErr;});
+  h+='<div style="text-align:right"><button class="btn ok" onclick="submitSc()" '+(allOk?'':'disabled')+'>✓ 全部通过 → 提交运行队列</button>';
+  if(!allOk)h+=' <span class="mini">尚有 '+errN+' 处未通过（见 ✘ 校验行），可点击上方「⚡ 一键自动修正」批量处理</span>';
+  h+='</div>';
+  return h;
+}
+function act_genSc(){S.scLoading=true;renderView();setTimeout(function(){S.scLoading=false;S.scGen=true;S.cases.forEach(function(c){if(c.appr){c.sc=true;c.scErr=(c.id==='TC-02');}});renderView();
+  toast('<b>想定/方案已生成</b>：6 组文件 · 5 组校验通过，<b>TC-02</b> 存在 1 项严格匹配未通过（详见校验报告）','warn');},1400);}
+function autoFix(id){var c=curCases().find(function(x){return x.id===id;});c.scErr=false;renderView();toast('<b>'+c.id+'</b> 已自动修正：在指令 rules[] 中追加 rule_type_code=000681 动作（「发射后锁定」，触发域=迎头/高前置角），重新校验<b>通过</b>','ok');}
+function autoFixAll(){var cs=approvedCases();var fix=cs.filter(function(c){return c.scErr;});
+  if(!fix.length){toast('当前无未通过项，无需修正','warn');return;}
+  var names=fix.map(function(c){return c.id;}).join('、');
+  fix.forEach(function(c){c.scErr=false;});
+  renderView();
+  toast('<b>一键自动修正完成</b>：'+names+' 共 '+fix.length+' 处未通过项已按校验引擎建议自动修正，重新校验<b>全部通过</b>','ok');}
+function submitSc(){S.scSubmitted=true;renderView();goPage('run');toast('已提交 6 组（用例×想定×方案）至批量运行队列','ok');}
+function viewFiles(id){var n=id.slice(3);var c=curCases().find(function(x){return x.id===id;});
+  openModal('<div class="tabs"><button class="t on" onclick="tabCode(this,0)">想定文件 · 想定T026-'+n+'.json</button><button class="t" onclick="tabCode(this,1)">指令文件 · 指令T026-'+n+'.json</button></div><div class="code" id="codeBox"></div><p class="pg-tip">⬆ 真实模板结构节选（完整样例：pipeline/inputs/想定_demo.json / 指令_demo.json，含 kjhjList 环境树 / config 链路等全部字段）。<span style="float:right">生成来源：'+c.id+' 字段映射留痕 <a class="clk" onclick="toast(\'映射记录：用例字段→模板字段 1:1，见追溯表\')">查看</a></span></p>',true);
+  window._code=[XD_PRE,ZL_PRE];tabCode(document.querySelector('.t'),0);
+  $('mTitle').textContent='文件预览（真实模板节选） · '+c.id;}
+function tabCode(t,i){document.querySelectorAll('.tabs .t').forEach(function(x){x.classList.remove('on');});t.classList.add('on');var el=$('codeBox');if(el)el.innerHTML=(window._code[i]||'').replace(/&lt;/g,'&lt;').replace(/&gt;/g,'&gt;').replace(/&amp;lt;/g,'<span class="tg">&lt;</span>');}
+/* 简单语法着色：先还原字面 < >，再整段转义，最后按标签着色 */
+function colorXml(x){x=String(x).replace(/&lt;/g,'<').replace(/&gt;/g,'>');x=esc(x);x=x.replace(/(&lt;\/?)([a-zA-Z]+)/g,'$1<span class="el">$2</span>').replace(/(&lt;\/?[a-zA-Z]+ )([a-zA-Z-]+=)/g,'$1<span class="at">$2</span>');return x;}
+window._colorXml=colorXml;
+function tabCode(t,i){document.querySelectorAll('.tabs .t').forEach(function(x){x.classList.remove('on');});t.classList.add('on');var el=$('codeBox');if(el)el.innerHTML=colorXml((window._code[i]||''));}
+
+/* ================= 页面 D 批量运行 (FR-3) ================= */
+function vRun(){
+  var cs=approvedCases();
+  var h='<div class="phead"><h2>批量运行</h2><span class="tag">FR-3</span><span class="desc">用例×想定×指令(方案) → 仿真器(pipeline\simulator.js) 批量执行 · 实体态势 / 事件态势 NDJSON 自动归档</span></div>';
+  var fails=cs.filter(function(c){return c.run==='fail';});
+  h+='<div class="card"><div class="card-b"><div class="chiprow"><span class="chip">运行时长：<b>由想定 endTime-startTime 决定</b></span><span class="chip">随机种子：<b class="m">20260903</b>（固定，可复现）</span><span class="chip">并发度：2</span><span class="chip">输出：实体态势 10s 帧 · 事件全量 NDJSON</span>';
+  h+='<div style="margin-left:auto">';
+  h+='<button class="btn sec" onclick="rerunFails()" '+(fails.length&&!S.runActive?'':'disabled')+'>↻ 重跑失败项（'+fails.length+'）</button> ';
+  if(S.runDone){h+='<button class="btn pri" onclick="rerunAll()">↻ 重新批量运行</button> <button class="btn ok" onclick="goPage(\'verdict\')">进入结果判读 →</button>';}
+  else{h+='<button class="btn pri" onclick="startRun()" '+(S.runActive||!S.scSubmitted?'disabled':'')+'>'+(S.runActive?'<span class="spin"></span> 运行中…':'▶ 开始批量运行')+'</button>';}
+  h+='</div></div></div></div>';
+  h+='<div class="card"><div class="card-h"><h3>运行队列</h3><span class="sub">任务 T-026 · '+cs.length+' 组</span><div style="margin-left:auto" id="runSummary"></div></div>';
+  h+='<div class="card-b" style="padding:6px 10px"><table class="tbl"><thead><tr><th>用例</th><th>想定 / 指令(方案)</th><th style="width:130px">状态</th><th style="width:150px">进度</th><th>产物归档（运行后生成）</th><th style="width:150px">操作</th></tr></thead><tbody>';
+  cs.forEach(function(c){h+=runRow(c);});
+  h+='</tbody></table></div></div>';
+  h+='<div class="card"><div class="card-b" style="display:flex;gap:20px;align-items:center"><span class="mini"><b>产物目录规则</b>：…\\T-026\\'+esc('{用例}')+'\\ → <span class="filetag">实体态势*.ndjson</span>（回放） · <span class="filetag">事件态势*.ndjson</span>（判读） · <span class="filetag">run.log</span></span><span class="mini" style="margin-left:auto">失败隔离：单用例异常不影响队列其余项，支持定向重跑</span></div></div>';
+  return h;
+}
+function runRow(c){var n=c.id.slice(3);
+  var pr=c.run==='idle'?'<div class="pbar"><i style="width:0%"></i></div>':(c.run==='run'?'<div class="pbar"><i style="width:'+c.prog+'%"></i></div>':(c.run==='ok'?'<div class="pbar ok"><i style="width:100%"></i></div>':'<div class="pbar err"><i style="width:100%"></i></div>'));
+  var files=(c.run==='ok')?'<span class="filetag">实体态势T026-'+n+'.ndjson</span> <span class="filetag">事件态势T026-'+n+'.ndjson</span> <span class="filetag">run.log</span>':(c.run==='fail'?'<span class="filetag">run.log</span>':'<span class="mini">—</span>');
+  var op=c.run==='fail'?'<a class="clk" style="color:var(--err)" onclick="viewLog(\''+c.id+'\')">查看日志</a>':(c.run==='ok'?'<a class="clk" onclick="goPage(\'verdict\')">去判读</a>':'<span class="mini">—</span>');
+  return '<tr data-runrow="'+c.id+'"><td class="m">'+c.id+'</td><td class="m" style="font-size:11.5px">想定T026-'+n+'.json / 指令T026-'+n+'.json</td><td data-runst="'+c.id+'">'+caseBadge(c,'run')+'</td><td data-runpr="'+c.id+'">'+pr+'</td><td data-runfl="'+c.id+'">'+files+'</td><td data-runop="'+c.id+'">'+op+'</td></tr>';}
+function viewLog(id){openModal('<div class="code" style="color:#f0a8a0">'+esc(FAIL_LOG_TC03)+'</div><p class="pg-tip">TC-03 首次运行：仿真器异常退出。处置建议：固定种子复跑核对（疑为数值偶发异常）。</p>');$('mTitle').textContent='运行日志 · '+id+'（首次运行）';}
+function setRunCell(id,what,html){var el=document.querySelector('[data-run'+what+'="'+id+'"]');if(el)el.innerHTML=html;}
+function runSummaryHtml(){var cs=approvedCases();var ok=cs.filter(function(c){return c.run==='ok';}).length,fail=cs.filter(function(c){return c.run==='fail';}).length,running=cs.filter(function(c){return c.run==='run';}).length;
+  if(!S.runStarted)return '';return '<span style="font-size:12px">'+badge('ok','完成 '+ok)+' '+badge('err','失败 '+fail)+(running?' '+badge('blue pulse','运行中 '+running):'')+'</span>';}
+function updateSummary(){var el=document.querySelector('#runSummary');if(el)el.innerHTML=runSummaryHtml();}
+function startRun(){
+  if(!S.scSubmitted){toast('请先在「想定构建」提交运行队列','err');return;}
+  S.runActive=true;S.runStarted=true;S.runDone=false;S.verdictDone=false;S.cases.forEach(function(c){if(c.appr){c.run='queue';c.prog=0;c.verdict='pending';}});
+  renderView();toast('<b>批量运行开始</b>：6 组任务进入队列，并发 2','ok');
+  scheduleCase('TC-01',0.4,6.0,true);scheduleCase('TC-02',0.8,5.5,true);scheduleCase('TC-03',1.2,3.2,true);
+  scheduleCase('TC-04',1.6,6.8,true);scheduleCase('TC-05',2.0,7.2,true);scheduleCase('TC-06',2.4,7.8,true);
+  setTimeout(checkRunEnd,8600);}
+function scheduleCase(id,delay,dur,failFirst){var c=curCases().find(function(x){return x.id===id;});
+  setTimeout(function(){if(!c||c.run==='fail')return;c.run='run';
+    var st=Date.now();var iv=setInterval(function(){var el=Date.now();c.prog=Math.min(100,Math.round((el-st)/dur*100));
+      setRunCell(c.id,'st',badge('blue pulse','运行中'));setRunCell(c.id,'pr','<div class="pbar"><i style="width:'+c.prog+'%"></i></div>');
+      if((el-st)/1000>=dur){clearInterval(iv);if(failFirst&&c.id==='TC-03'&&!c._rerun){c.run='fail';c.prog=100;
+        setRunCell(c.id,'st',badge('err','运行失败'));setRunCell(c.id,'pr','<div class="pbar err"><i style="width:100%"></i></div>');
+        setRunCell(c.id,'op','<a class="clk" style="color:var(--err)" onclick="viewLog(\''+c.id+'\')">查看日志</a>');
+        toast('<b>'+c.id+'</b> 仿真器异常退出（详见日志），已隔离，不影响队列其余项','err');
+        updateSummary();}
+      else{c.run='ok';c.prog=100;
+        setRunCell(c.id,'st',badge('ok','运行成功'));
+        setRunCell(c.id,'pr','<div class="pbar ok"><i style="width:100%"></i></div>');
+        setRunCell(c.id,'fl','<span class="filetag">实体态势T026-'+c.id.slice(3)+'.ndjson</span> <span class="filetag">事件态势T026-'+c.id.slice(3)+'.ndjson</span> <span class="filetag">run.log</span>');
+        setRunCell(c.id,'op','<a class="clk" onclick="goPage(\'verdict\')">去判读</a>');
+        updateSummary();}}},80);},delay*1000);}
+function checkRunEnd(){var cs=approvedCases();if(cs.some(function(c){return c.run==='run'||c.run==='queue';})){setTimeout(checkRunEnd,400);return;}
+  S.runActive=false;
+  if(cs.some(function(c){return c.run==='fail';})){S.runDone=false;renderView();toast('<b>批量运行结束</b>：5 成功 / 1 失败。<a class="clk" style="color:var(--acc)" onclick="rerunFails()">↻ 点击重跑失败项</a> 后进入判读','warn');}
+  else{finishRun();}}
+function finishRun(){S.runDone=true;computeVerdicts();
+  renderView();goPage('verdict');
+  var cs=approvedCases();var okN=cs.filter(function(c){return c.verdict==='pass';}).length,sp=cs.filter(function(c){return c.verdict==='suspect';}).length,fl=cs.filter(function(c){return c.verdict==='fail';}).length;
+  toast('<b>运行完成，自动判读初判</b>：通过 '+okN+' / 存疑 '+sp+' / 不通过 '+fl+'。请人工复核存疑项后确认结论。','ok');}
+function rerunFails(){var fs=curCases().filter(function(c){return c.run==='fail';});if(!fs.length)return;
+  toast('<b>重跑 '+fs.length+' 项</b>：'+fs.map(function(c){return c.id;}).join('、'),'ok');
+  fs.forEach(function(c){c.run='run';c.prog=0;c._rerun=true;renderRunRow(c);var dur=2.6;var st=Date.now();
+    var iv=setInterval(function(){var el=(Date.now()-st)/1000;c.prog=Math.min(100,Math.round(el/dur*100));
+      if(el>=dur){clearInterval(iv);c.run='ok';c.prog=100;renderRunRow(c);updateSummary();
+        var left=approvedCases().filter(function(x){return x.run==='run'||x.run==='queue';});
+        if(!left.length){setTimeout(finishRun,600);}}},90);});}
+function renderRunRow(c){var row=document.querySelector('[data-runrow="'+c.id+'"]');if(!row)return;row.outerHTML=runRow(c);}
+function rerunAll(){if(S.auto)return;S.cases.forEach(function(c){c.run='idle';c.prog=0;c._rerun=false;});S.runDone=false;renderView();toast('已重置运行队列，可重新开始批量运行','warn');}
+
+/* 判读结果（运行完成后自动计算初判） */
+function computeVerdicts(){var cs=approvedCases();cs.forEach(function(c){var b=CASE_BASE.find(function(x){return x.id===c.id;});c.evsOk=b.evs.map(function(e){return e[4]===1;});
+  var allOk=c.evsOk.every(function(x){return x;});
+  c.verdict=allOk?'pass':(c.id==='TC-02'?'suspect':'fail');});
+  S.issues=JSON.parse(JSON.stringify(ISSUE_BASE));}
+
+/* ================= 页面 E 结果判读 (FR-4) ================= */
+function replayCardHtml(c){var n=c.id.slice(3);
+  var b=CASE_BASE.find(function(x){return x.id===c.id;});var evs=b?b.evs:[];
+  var hit=0,miss=0,none=0;
+  evs.forEach(function(e){if(e[4]===1){hit++;}else if(c.id==='TC-06'&&e[0]==='CMRE000000002'){none++;}else{miss++;}});
+  var vb=c.verdict==='pass'?badge('ok','通过'):(c.verdict==='fail'?badge('err','不通过'):(c.verdict==='suspect'?badge('warn pulse','存疑·待复核'):badge('mut','待判')));
+  var h='<div class="card"><div class="card-h"><h3>自动复盘 · 态势回放</h3><span class="sub">选中用例即自动播放 · 实体态势文件 实体态势T026-'+n+'.ndjson</span><span style="margin-left:auto"></span><span class="badge blue pulse">自动播放中</span>'+vb+'<button class="btn ghost sm" onclick="stopLive();openReplay(\''+c.id+'\',0)">⛶ 全屏</button></div><div class="card-b">';
+  h+='<div class="rpwrapL"><canvas id="rpLive" width="920" height="340"></canvas><div class="rp-ov">自动播放 · 想定T026-'+n+'（pipeline 走通样例轨迹） · <b id="rpliveT" style="color:#7ce3b5">T+00:00.0</b></div></div>';
+  h+='<div class="rpctl"><button class="btn sec sm" id="liveBtn" onclick="liveToggle()">❚❚ 暂停</button><button class="btn sec sm" onclick="liveRestart()">↺ 从头</button><input type="range" id="rpliveSlider" min="0" max="600" step="0.5" value="0" oninput="liveSeek(this.value)"><span class="rptime" id="rpliveTime">T+00:00.0</span></div>';
+  h+='<div class="evlist"><div class="evhead">事件同步 · 随回放实时点亮<span style="margin-left:auto;font-weight:600">命中 '+hit+(miss?' · 缺失 '+miss:'')+(none?' · 符合(未产生) '+none:'')+'</span></div>'+evSyncRowsHtml('L',c.id)+'</div>';
+  h+='<p class="pg-tip" style="margin:8px 0 0">▶ 播放中关键事件按事件态势时刻<b>实时点亮</b>：绿=已产生，红=应发生但未检索到；点击任一行可定位到该时刻人工核对。循环播放自动重置。</p>';
+  h+='</div></div>';return h;}
+function vVerdict(){
+  var cs=approvedCases();
+  var h='<div class="phead"><h2>结果判读与问题评估</h2><span class="tag">FR-4</span><span class="desc">事件态势(cmreCode)判读关键事件 · 实体态势回放复盘 · 问题清单闭环</span></div>';
+  if(!S.runDone){h+='<div class="card"><div class="empty"><div class="big">🔍</div>该任务尚未完成批量运行，请先在「批量运行」执行用例。<br><span class="mini">或点击右上角「▶ 自动演示全流程」观看完整流程</span></div></div>';return h;}
+  h+='<div style="display:grid;grid-template-columns:250px 1fr;gap:14px;align-items:start">';
+  /* 左：用例列表 */
+  h+='<div class="card" style="margin-bottom:0"><div class="card-h"><h3>用例判读</h3></div><div class="card-b" style="padding:8px">';
+  cs.forEach(function(c){h+='<div data-sel="'+c.id+'" style="display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:7px;cursor:pointer;border:1px solid transparent" onclick="selectCase(\''+c.id+'\')"><span class="m" style="font-size:12px">'+c.id+'</span><span style="flex:1;font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(c.title)+'</span>'+caseBadge(c)+'</div>';});
+  h+='</div></div>';
+  /* 右：详情 */
+  var selId=(S._sel||'TC-01');var c=cs.find(function(x){return x.id===selId;})||cs[0];
+  S._sel=c.id;
+  h+='<div>'+replayCardHtml(c)+'<div class="card"><div class="card-h"><h3>'+c.id+' · '+esc(c.title)+'</h3>';
+  var vmap={pending:['mut','待人工判读'],pass:['ok','判定通过'],fail:['err','判定不通过'],suspect:['warn','存疑 · 需复核']};
+  h+=badge(vmap[c.verdict][0],vmap[c.verdict][1]);
+  h+='<span class="sub" style="margin-left:auto">想定T026-'+c.id.slice(3)+'.json · 实体态势T026-'+c.id.slice(3)+'.ndjson · 事件态势T026-'+c.id.slice(3)+'.ndjson</span></div><div class="card-b">';
+  if(c.verdict==='suspect'||(c.verdict==='fail'&&c.id==='TC-06')){h+='<div class="note" style="margin-bottom:10px">'+(c.id==='TC-02'?'<b>存疑说明</b>：自动判读在事件态势中未检索到 CMRE000000005（规则触发事件）。候选原因：① 规则 000681 触发域为迎头/高前置角，尾追构型不满足；② 指令未携带该规则动作。建议回放复核态势与规则配置。':'<b>不通过说明</b>：超包线发射指令未被拒绝——未产生抑制报告(CMRE000000001)，发射流程照常执行。候选原因：模型未实现包线外抑制分支。请人工确认是否为缺陷。')+'</div>';}
+  h+='<table class="tbl"><thead><tr><th style="width:240px">期望关键事件（来自用例）</th><th style="width:150px">事件态势检索</th><th style="width:110px">时刻</th><th style="width:90px">判定</th><th>操作</th></tr></thead><tbody>';
+  var evB=CASE_BASE.find(function(x){return x.id===c.id;}).evs;
+  var missing=c.id==='TC-02'||c.id==='TC-06';
+  evB.forEach(function(e,i){var miss=(e[4]===0&&c.id!=='TC-04');
+    if(e[0]==='CMRE000000002'&&c.id==='TC-06'){h+='<tr><td class="m">'+e[0]+'（'+e[1]+'）</td><td class="m" style="color:var(--err)">未产生 ✓符合预期</td><td class="m">—</td><td>'+badge('ok','符合')+'</td><td><span class="mini">期望不产生</span></td></tr>';return;}
+    var found=e[4]===1;
+    h+='<tr><td class="m">'+e[0]+'<span class="sub" style="display:inline;margin-left:6px">'+e[1]+'</span><span class="sub">对象：'+e[2]+'</span></td><td class="m">'+(found?'<span style="color:var(--ok)">已检索到</span>':'<span style="color:var(--err)">未检索到</span>')+'</td><td class="m">'+e[3]+'</td><td>'+(found?badge('ok','一致'):badge('err','缺失'))+'</td><td>'+(found?'<a class="clk" onclick="viewEvt(\''+c.id+'\',\''+e[3]+'\')">查原始记录</a>':'<a class="clk" onclick="openReplay(\''+c.id+'\','+(i+1)+')">回放定位</a>')+'</td></tr>';});
+  h+='</tbody></table>';
+  /* 判定操作 */
+  h+='<div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><span class="mini" style="font-weight:600">人工判定：</span>';
+  h+='<button class="btn ok sm" onclick="setVerdict(\''+c.id+'\',\'pass\')" '+(c.verdict==='pass'?'disabled':'')+'>✓ 判定通过</button>';
+  h+='<button class="btn sm" onclick="setVerdict(\''+c.id+'\',\'suspect\')" style="border-color:var(--warn-line);color:var(--warn)" '+(c.verdict==='suspect'?'disabled':'')+'>? 存疑待查</button>';
+  h+='<button class="btn danger sm" onclick="setVerdict(\''+c.id+'\',\'fail\')" '+(c.verdict==='fail'?'disabled':'')+'>✕ 判定不通过</button>';
+  h+='<span style="flex:1"></span>';
+  if(c.verdict!=='pending'){h+='<span class="mini" style="color:var(--ok)">留痕：工程师·小王 · '+esc(c.vnote||'人工复核确认')+'</span>';}
+  h+='</div>';
+  h+='</div></div>';
+  /* 问题清单 */
+  h+='<div class="card"><div class="card-h"><h3>问题清单</h3><span class="sub">自动初判生成 + 人工确认闭环</span></div><div class="card-b" style="padding:8px 14px">';
+  if(!S.issues.length){h+='<p class="mini" style="padding:8px 0">无未处理问题。</p>';}
+  S.issues.forEach(function(iss){var stm={open:['warn','待人工确认'],resolved:['ok','已解决'],confirmed:['err','已确认缺陷']};
+    h+='<div style="display:flex;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line2);align-items:flex-start"><span class="m" style="font-size:12px;color:var(--faint)">'+iss.id+'</span><div style="flex:1"><b style="font-size:13px">'+iss.case+' · '+iss.t+'</b><div class="mini" style="margin-top:2px">'+esc(iss.txt)+'</div>'+(iss.reason?'<div class="mini" style="margin-top:3px;color:#7a4a00;background:var(--warn-bg);border-radius:6px;padding:5px 9px">复核依据：'+esc(iss.reason)+'</div>':'')+(iss.res?'<div class="mini" style="margin-top:3px;color:var(--ok)">处置：'+esc(iss.res)+'</div>':'')+'</div>'+
+    badge(stm[iss.st][0],stm[iss.st][1])+'<div style="display:flex;gap:6px">'+
+    (iss.st==='open'?'<button class="btn ok sm" onclick="resIssue(\''+iss.id+'\',\'ok\')">确认非缺陷</button><button class="btn danger sm" onclick="resIssue(\''+iss.id+'\',\'fail\')">确认缺陷</button>':'')+
+    '</div></div>';});
+  h+='</div></div>';
+  /* 汇总按钮 */
+  var allFinal=cs.every(function(x){return x.verdict==='pass'||x.verdict==='fail';});
+  h+='<div style="text-align:right"><button class="btn pri" onclick="goPage(\'docs\')" '+(allFinal?'':'disabled')+'>✓ 确认结论 → 生成过程文档</button>';
+  if(!allFinal)h+=' <span class="mini">仍有存疑/待判用例，请先完成人工判定</span></div>';
+  h+='</div></div>';
+  return h;
+}
+function selectCase(id){S._sel=id;renderView();}
+function setVerdict(id,v){var c=curCases().find(function(x){return x.id===id;});c.verdict=v;
+  if(v==='pass'){c.vnote='人工复核确认：'+(id==='TC-02'?'经回放复核为用例条件偏差，修订用例条件后重跑通过':'与预期一致');}
+  if(v==='fail'){c.vnote='人工确认缺陷/差异，转缺陷单处理';}
+  if(id==='TC-02'&&v==='pass'){var i=S.issues.find(function(x){return x.id==='ISSUE-01';});if(i){i.st='resolved';i.res='用例条件修订（尾追→高前置角）后重跑，规则事件命中，TC-02 判定通过。';}}
+  var allFinal=approvedCases().every(function(x){return x.verdict==='pass'||x.verdict==='fail';});
+  if(allFinal){S.verdictDone=true;}
+  renderView();renderShell();toast('<b>'+id+'</b> 判定：'+(v==='pass'?'通过':v==='fail'?'不通过':'存疑')+'（已留痕）','ok');}
+function resIssue(id,k){var i=S.issues.find(function(x){return x.id===id;});
+  if(k==='ok'){i.st='resolved';i.res='人工复核确认为误报/非缺陷，问题关闭。';toast('<b>'+id+'</b> 已确认为非缺陷，关闭','ok');}
+  else{i.st='confirmed';i.res='已确认缺陷并转缺陷单 DEF-20260903-01（遗留至下版处理）。';toast('<b>'+id+'</b> 已确认缺陷，转缺陷单 DEF-20260903-01','err');}
+  renderView();}
+function viewEvt(id){openModal(
+  '<div style="margin-bottom:8px" class="mini">来源：<span class="filetag">事件态势_demo.ndjson</span>（NDJSON · 每行一帧 · 帧头 simulationTime/simulatorStatus/startTime/endTime + eventList）——以下为与用例事件码相关的真实记录节选：</div>'+
+  '<table class="tbl"><thead><tr><th>仿真时刻(帧)</th><th>cmreCode</th><th>cmreName</th><th>src</th><th>target</th><th>timeStamp(s)</th></tr></thead><tbody>'+
+  REAL_EV.map(function(e){var mm=Math.floor(e.t/60),ss=(e.t%60);var st='2027/01/01 10:'+String(Math.floor(e.t/60)).padStart(2,'0')+':'+String(Math.round(e.t%60)).padStart(2,'0');
+    var d=CMRE_DICT[e.code]||{name:e.code};
+    return '<tr><td class="m">'+st+'</td><td class="m">'+e.code+'</td><td>'+d.name+'</td><td>'+e.src+'</td><td>'+(e.target||'—')+'</td><td class="m">'+e.t.toFixed(1)+'</td></tr>';}).join('')+
+  '</tbody></table><p class="pg-tip" style="margin-top:8px">判读依据：事件码 cmreCode + 来源 srcID + 时间窗口三元组；命中毁伤事件含 damagePercent/damageLevel/quitType 扩展字段。</p>');
+  $('mTitle').textContent='事件态势原始记录 · '+id+'（真实输出节选）';}
+/* ---------- 回放器（实体态势复盘） ---------- */
+var RP={t:0,play:false,timer:null,max:600};
+function openReplay(id,markT){RP.t=0;RP.stop();stopLive();RP.id=id;
+  openModal('<div id="rpwrap"><canvas id="rp" width="920" height="380"></canvas><div class="rp-ov">回放：<b>实体态势_demo.ndjson</b> · 想定 想定_demo.json · 10× <span id="rpt0" style="color:#7ce3b5">T+00:00.0</span></div></div>'+
+  '<div class="rpctl"><button class="btn sec sm" id="rpbtn" onclick="rpToggle()">▶ 播放</button><input type="range" id="rpslider" min="0" max="'+RP.max+'" step="0.5" value="0" oninput="rpSeek(this.value)"><span class="rptime" id="rptime">T+00:00.0</span></div>'+
+  '<div class="mini" style="margin-top:8px"><b>图例</b>：<span style="color:#7ce3b5">●</span> 蓝方 ZB01（载 WQ01 空空弹） · <span style="color:#ff9d8f">●</span> 红方 ZB02 · <span style="color:#ffd166">✚</span> WQ01 导弹 · <span style="color:#ff6b5e">◉</span> 命中(76.3s) · <span style="color:#ff9d8f">▢</span> 某机场。轨迹由实体态势帧 lon/lat 驱动（真实走通样例）。</div><div class="evlist"><div class="evhead">事件同步 · 随回放实时点亮</div>'+evSyncRowsHtml('M',id)+'</div>',true);
+  $('mTitle').textContent='实体态势复盘 · '+id+'（真实走通样例回放）';
+  if(markT>1){setTimeout(function(){var el=$('rpslider');if(el){el.value=40;rpSeek(40);}},400);}
+  rpDraw();}
+function rpSeek(v){RP.t=+v;rpDraw();}
+function rpToggle(){RP.play=!RP.play;var b=$('rpbtn');if(b)b.textContent=RP.play?'❚❚ 暂停':'▶ 播放';if(RP.play){RP.timer=setInterval(function(){RP.t+=1.2;if(RP.t>=RP.max){RP.t=0;}rpDraw();},60);}else{rpStopT();}}
+function rpStopT(){if(RP.timer){clearInterval(RP.timer);RP.timer=null;}}
+RP.stop=function(){RP.play=false;rpStopT();};
+/* ---------- 真实轨迹数据驱动（实体态势_demo.ndjson 提取；帧间隔10s） ---------- */
+var GEO={lon0:120.00,lon1:121.90,lat0:30.02,lat1:30.62};
+function px(lon){return (lon-GEO.lon0)/(GEO.lon1-GEO.lon0);}
+function py(lat){return 1-(lat-GEO.lat0)/(GEO.lat1-GEO.lat0);}
+function ptAt(arr,sec){if(!arr||!arr.length)return null;var i=Math.floor(sec/10);if(i>=arr.length)return null;
+  var a=arr[i],b=arr[Math.min(i+1,arr.length-1)],f=(sec-i*10)/10;
+  return {lon:a[0]+(b[0]-a[0])*f,lat:a[1]+(b[1]-a[1])*f};}
+function redExtrap(sec){if(sec<=70)return ptAt(REAL_TRK.R,sec);
+  if(sec>80)return null;
+  var a=REAL_TRK.R[5],b=REAL_TRK.R[6],dt=sec-70;
+  return {lon:b[0]+(b[0]-a[0])/10*dt,lat:b[1]+(b[1]-a[1])/10*dt};}
+function rpScene(g,W,H,t,id){
+  g.fillStyle='#0b1220';g.fillRect(0,0,W,H);
+  /* 网格 */
+  g.strokeStyle='rgba(120,150,200,.12)';g.lineWidth=1;
+  for(var lon=120.0;lon<=GEO.lon1;lon+=0.2){var gx=px(lon)*W;g.beginPath();g.moveTo(gx,0);g.lineTo(gx,H);g.stroke();}
+  for(var lat=GEO.lat0;lat<=GEO.lat1;lat+=0.1){var gy=py(lat)*H;g.beginPath();g.moveTo(0,gy);g.lineTo(W,gy);g.stroke();}
+  /* 机场（静态） */
+  var ap={x:px(120.9)*W,y:py(30.5)*H};
+  g.fillStyle='#ff9d8f';g.beginPath();g.rect(ap.x-3,ap.y-3,6,6);g.fill();
+  g.font='10px Consolas';g.fillStyle='#8a99b2';g.fillText('某机场(Red)',ap.x-30,ap.y+18);
+  /* 蓝方轨迹与当前位置 */
+  var bp=ptAt(REAL_TRK.B,Math.min(t,600));
+  g.strokeStyle='rgba(124,227,181,.35)';g.lineWidth=1.4;g.beginPath();
+  for(var s=0;s<=Math.min(t,600);s+=2){var p=ptAt(REAL_TRK.B,s);if(!p)break;var xx=px(p.lon)*W,yy=py(p.lat)*H;if(s===0)g.moveTo(xx,yy);else g.lineTo(xx,yy);}
+  g.stroke();
+  /* 红方轨迹与当前位置（76.3s 被毁，80s 后消失） */
+  g.strokeStyle='rgba(255,157,143,.4)';g.lineWidth=1.4;g.beginPath();
+  for(var s2=0;s2<=Math.min(t,76.3);s2+=2){var rp2=ptAt(REAL_TRK.R,Math.min(s2,70));if(!rp2)break;var x2=px(rp2.lon)*W,y2=py(rp2.lat)*H;if(s2===0)g.moveTo(x2,y2);else g.lineTo(x2,y2);}
+  g.stroke();
+  var ht=REAL_META.hitT, la=40;
+  /* 导弹（40s~76.3s，指向命中点） */
+  if(t>=la&&t<ht){
+    var lp=ptAt(REAL_TRK.B,la), hp=redExtrap(ht), f=(t-la)/(ht-la);
+    g.strokeStyle='rgba(255,209,102,.6)';g.lineWidth=1;g.beginPath();g.moveTo(px(lp.lon)*W,py(lp.lat)*H);g.lineTo(px(hp.lon)*W,py(hp.lat)*H);g.stroke();
+    var mx=px(lp.lon+(hp.lon-lp.lon)*f)*W, my=py(lp.lat+(hp.lat-lp.lat)*f)*H;
+    g.fillStyle='#ffd166';g.beginPath();g.arc(mx,my,3.2,0,6.283);g.fill();
+    g.font='10px Consolas';g.fillStyle='#ffd166';g.fillText('WQ01×2',mx+6,my+4);
+  }
+  /* 单位 */
+  if(bp){var bx=px(bp.lon)*W,by=py(bp.lat)*H;g.fillStyle='#7ce3b5';g.beginPath();g.arc(bx,by,6.5,0,6.283);g.fill();g.font='12px Consolas';g.fillStyle='#9fe8c2';g.fillText('蓝方ZB01',bx-24,by-13);}
+  var red=redExtrap(t);
+  if(t<80&&red){var rx=px(red.lon)*W,ry=py(red.lat)*H;g.fillStyle='#ff9d8f';g.beginPath();g.arc(rx,ry,6.5,0,6.283);g.fill();g.font='12px Consolas';g.fillStyle='#ffb3a9';g.fillText('红方ZB02',rx-24,ry-13);}
+  /* 命中爆点 76.3s */
+  if(t>=ht&&t<ht+9){var hp2=redExtrap(ht);if(hp2){var hx=px(hp2.lon)*W,hy=py(hp2.lat)*H;
+    g.fillStyle='rgba(255,107,94,.85)';g.beginPath();g.arc(hx,hy,26*(1-Math.min(1,(t-ht)/6))+8,0,6.283);g.fill();
+    g.fillStyle='#ffd166';g.beginPath();g.arc(hx,hy,9,0,6.283);g.fill();
+    g.fillStyle='#ff6b5e';g.font='11px Consolas';g.fillText('HIT @ 76.3s (CMRE000000003)',hx-100,hy-26);}}
+  g.fillStyle='#4d5f7c';g.font='10px Consolas';
+  g.fillText('区域 120.0~121.9E / 30.0~30.6N（实体态势帧 lon/lat 驱动，帧距10s）',6,H-8);
+  var mm=Math.floor(t/60),ss=t-mm*60;return 'T+'+String(mm).padStart(2,'0')+':'+ss.toFixed(1).padStart(4,'0');}
+function rpDraw(){var cv=$('rp');if(!cv)return;var g=cv.getContext('2d');var tstr=rpScene(g,cv.width,cv.height,RP.t,RP.id);
+  var t0=$('rpt0');if(t0)t0.textContent=tstr;var tp=$('rptime');if(tp)tp.textContent=tstr;
+  var sl=$('rpslider');if(sl&&Math.abs(+sl.value-RP.t)>0.4){sl.value=RP.t;}evSyncPaint('M',RP.t,RP.id);}
+/* ---------- 内嵌自动复盘播放器（结果判读页随用例自动播放） ---------- */
+var RP2={t:0,play:true,timer:null,id:'TC-01'};
+function liveStep(){if(RP2.play){RP2.t+=1.2;if(RP2.t>600)RP2.t=0;}liveDraw();}
+function ensureLive(){var want=S._sel||'TC-01';if(RP2.id!==want){RP2.id=want;RP2.t=0;RP2.play=true;}
+  if(!RP2.timer){RP2.timer=setInterval(liveStep,60);}liveDraw();}
+function liveToggle(){RP2.play=!RP2.play;liveDraw();}
+function liveRestart(){RP2.t=0;RP2.play=true;liveDraw();}
+function liveSeek(v){RP2.t=+v;RP2.play=true;liveDraw();}
+function liveSeekT(sec){RP2.t=+sec;RP2.play=true;liveDraw();}
+function stopLive(){RP2.play=false;liveDraw();}
+function liveDraw(){var cv=$('rpLive');if(!cv)return;var g=cv.getContext('2d');var tstr=rpScene(g,cv.width,cv.height,RP2.t,RP2.id);
+  var a=$('rpliveT');if(a)a.textContent=tstr;var b=$('rpliveTime');if(b)b.textContent=tstr;
+  var sl=$('rpliveSlider');if(sl&&Math.abs(+sl.value-RP2.t)>0.4)sl.value=RP2.t;
+  var btn=$('liveBtn');if(btn)btn.textContent=RP2.play?'❚❚ 暂停':'▶ 播放';evSyncPaint('L',RP2.t,RP2.id);}
+/* ---------- 回放事件同步（随仿真时刻实时点亮关键事件） ---------- */
+function fmtT(s){var mm=Math.floor(s/60),ss=s-mm*60;return String(mm).padStart(2,'0')+':'+ss.toFixed(1).padStart(4,'0');}
+function evSyncRowsHtml(prefix,id){var b=CASE_BASE.find(function(x){return x.id===id;});if(!b)return '';
+  var html='';
+  b.evs.forEach(function(e,i){var found=e[4]===1;var expNo=(id==='TC-06'&&e[0]==='CMRE000000002');
+    var tsec=(e[3]!=='—')?(+e[3].slice(0,2)*60+(+e[3].slice(3))):null;
+    var th=found?(tsec!=null?tsec:fallT(e[0])):fallT(e[0]);
+    var tlab=expNo?'—':((e[3]!=='—')?e[3]:('~'+fmtT(th)));
+    html+='<div class="evrow" id="'+prefix+'ev'+i+'" onclick="'+(prefix==='L'?'liveSeekT':'rpSeek')+'('+th+')">'
+      +'<span class="et">'+tlab+'</span><span class="ec">'+e[0]+'</span><span class="en">'+e[1]+'</span><span class="es">待发生</span></div>';});
+  return html;}
+function evSyncPaint(prefix,t,id){var b=CASE_BASE.find(function(x){return x.id===id;});if(!b)return;
+  b.evs.forEach(function(e,i){var el=document.getElementById(prefix+'ev'+i);if(!el)return;
+    var found=e[4]===1;var expNo=(id==='TC-06'&&e[0]==='CMRE000000002');
+    var tsec=(e[3]!=='—')?(+e[3].slice(0,2)*60+(+e[3].slice(3))):null;
+    var th=found?(tsec!=null?tsec:fallT(e[0])):fallT(e[0]);
+    var kind=expNo?'none':(found?'hit':'miss');
+    var on=(kind==='none')?t>=0.5:t>=th;
+    el.className='evrow '+kind+(on?' on':'');
+    var st=el.querySelector('.es');
+    if(st){if(kind==='hit')st.textContent=on?'已产生 ✓':'待发生';
+      else if(kind==='miss')st.textContent=on?'未产生 ✗ 应发生':'待发生';
+      else st.textContent=on?'符合（未产生）':'—';}});}
+
+/* ================= 页面 F 过程文档 (FR-5) ================= */
+var DOCS=[['📄','测试方案','测试方案_T026_v1.docx','来自 需求与生成 · 审定稿','test_plan'],['📋','测试用例集','测试用例集_T026_v1.docx','来自 需求与生成 · 审定稿（6 条）','test_cases'],['🧾','执行记录','执行记录_T026_v1.docx','来自 批量运行 · 时间/环境/结果','run_log'],['📑','测试报告','测试报告_T026_v1.docx','来自 结果判读 · 结论与问题清单','report'],['🔗','追溯表','追溯表_T026_v1.xlsx','全链路：需求→用例→想定方案→产物→结论','trace']];
+function vDocs(){
+  var h='<div class="phead"><h2>过程文档自动生成</h2><span class="tag">FR-5</span><span class="desc">按规范流程模板一键汇总 · 数据自动关联，免手工誊抄 · 支撑出版</span></div>';
+  h+='<div class="card"><div class="card-b"><div class="chiprow"><span class="chip">文档模板：测试文档规范模板集 V2</span><span class="chip">任务：T-026 · 空空弹 WQ01 出版测试</span><span class="chip">测试结论：5 通过 / 1 不通过（缺陷遗留 DEF-20260903-01）</span>';
+  h+='<div style="margin-left:auto"><button class="btn pri" onclick="genDocs()" '+(S.docLoading?'disabled':'')+'>'+(S.docLoading?'<span class="spin"></span> 正在生成…':'✦ 一键生成过程文档包')+'</button></div></div></div></div>';
+  var st={0:['pending','待生成'],1:['ok','已生成']};
+  h+='<div class="card"><div class="card-b" style="padding:8px 16px">';
+  DOCS.forEach(function(d,i){var gen=S.docGen;var sz=['','184 KB','126 KB','96 KB','142 KB','88 KB'][i];
+    h+='<div class="drow"><div class="di">'+d[0]+'</div><div><div class="dn">'+d[1]+'</div><div class="ds">'+d[2]+' · '+d[3]+'</div></div><div class="meta">'+(S.docLoading&&i<=(S._docDone||-1)?'<span class="badge blue pulse">生成中</span>':(gen?badge('ok','已生成')+'<span class="mini m">'+sz+'</span>':badge('mut','待生成')))+
+    (gen?'<a class="clk" onclick="toast(\'原型：导出下载待真实环境接入\',\'warn\')">下载</a>':'')+'</div></div>';});
+  h+='</div></div>';
+  if(S.docGen){h+='<div class="card"><div class="card-h"><h3>追溯表预览</h3><span class="badge blue">全链路可追溯</span></div><div class="card-b" style="overflow-x:auto"><table class="tbl" style="min-width:860px"><thead><tr><th>需求</th><th>测试方案</th><th>用例</th><th>想定</th><th>指令(方案)</th><th>实体态势</th><th>事件态势</th><th>判读结论</th></tr></thead><tbody>';
+  var vs={};
+  approvedCases().forEach(function(c){vs[c.id]=c.verdict==='pass'?'通过':(c.verdict==='fail'?'不通过':'—');});
+  approvedCases().forEach(function(c,i){h+='<tr><td class="m">REQ-T026</td><td class="m">TP-T026</td><td class="m"><a class="clk" onclick="selectCase(\''+c.id+'\');goPage(\'verdict\')">'+c.id+'</a></td><td class="m">想定T026-'+c.id.slice(3)+'.json</td><td class="m">指令T026-'+c.id.slice(3)+'.json</td><td class="m">实体态势T026-'+c.id.slice(3)+'.ndjson</td><td class="m">事件态势T026-'+c.id.slice(3)+'.ndjson</td><td>'+badge(c.verdict==='pass'?'ok':(c.verdict==='fail'?'err':'warn'),vs[c.id])+'</td></tr>';});
+  h+='</tbody></table><p class="pg-tip" style="margin-top:8px">每个 ID 均可点击回跳至对应页面/文件——出版审查时从结论一路下钻到原始事件记录。</p></div></div>';
+  h+='<div style="text-align:right;margin-top:4px"><button class="btn ok" onclick="S.docsDone=true;renderView();toast(\'文档包已归档至任务 T-026，流程完成 ✅（原型演示）\',\'ok\')" '+(S.docGen?'':'disabled')+'>✓ 归档并标记流程完成</button></div>';}
+  return h;}
+function genDocs(){S.docLoading=true;S._docDone=-1;renderView();
+  var i=0;var iv=setInterval(function(){S._docDone=i;toast('正在生成：'+DOCS[i][1]+'…');i++;
+    if(i>=DOCS.length){clearInterval(iv);S.docLoading=false;S.docGen=true;S.docsDone=true;renderView();renderShell();toast('<b>过程文档包已生成</b>：5 份文档 + 追溯表，数据全部自动关联（免手工誊抄）','ok');}
+    else{renderView();}},650);}
+
+/* ================= 页面 G 模板管理 (FR-6) ================= */
+function vTpl(){
+  var rows=[['想定模板','想定模版.json','JSON(带注释/尾逗号需清洗) · 环境树 kjhjList + 兵力 yb.trooplist.lstEquip','样例已对齐(脱敏)','想定_demo.json'],['指令模板（方案）','指令模版.json','JSON · rules[].action[]：executor/launch/target/起止秒 + ruleconfig','样例已对齐(脱敏)','指令_demo.json'],['事件态势（事件数据）','事件态势模版.json','NDJSON · 帧头+eventList[] · cmreCode 事件码','样例已对齐(脱敏)','事件态势_demo.ndjson'],['实体态势（状态数据）','实体态势模版.json','NDJSON · 帧头+entityList[] · 10s 采样','样例已对齐(脱敏)','实体态势_demo.ndjson'],['事件码字典','事件码字典_demo.json','cmreCode/cmreName/kind；CMRE000000004~006 为演示编码','样例已对齐(脱敏)','事件码字典_demo.json'],['过程文档模板','Doc_Tpl_V2','测试方案/用例集/报告','规范模板 V2','—']];
+  var h='<div class="phead"><h2>模板与规则配置管理</h2><span class="tag">FR-6</span><span class="desc">模板 / 字段约束 / 映射规则 / 判读规则配置化 —— 样例已按真实模板对齐，正式库接入仅需配置更新，不改工具逻辑</span></div>';
+  h+='<div class="card"><div class="card-b"><div class="note">当前模板与走通样例（<b>pipeline/</b> 目录，格式经脱敏）已对齐：想定模版.json + 指令模版.json → 仿真器 → 实体态势/事件态势 NDJSON + 事件码字典。CMRE000000004~006 为<b>演示编码</b>，真实码表以系统为准；正式模板接入后在此上传替换并重新校验存量用例即可。<a class="clk" onclick="toast(\'上传与在线编辑为原型示意\',\'warn\')">＋ 上传新模板</a></div></div></div>';
+  h+='<div class="card"><div class="card-b" style="padding:6px 10px"><table class="tbl"><thead><tr><th style="width:150px">类型</th><th style="width:190px">当前模板</th><th>内容 / 约束</th><th style="width:150px">状态</th><th style="width:120px">样例文件</th><th style="width:110px">操作</th></tr></thead><tbody>';
+  rows.forEach(function(r){h+='<tr><td>'+r[0]+'</td><td class="m">'+r[1]+'</td><td class="mini">'+r[2]+'</td><td>'+badge('warn',r[3])+'</td><td class="m" style="font-size:11px">'+r[4]+'</td><td><a class="clk" onclick="toast(\'原型：模板在线编辑/版本管理待真实模板接入\',\'warn\')">编辑</a> <a class="clk" onclick="toast(\'原型：版本 diff 待接入\',\'warn\')">历史</a></td></tr>';});
+  h+='</tbody></table></div></div>';
+  h+='<div class="grid2">';
+  h+='<div class="card"><div class="card-h"><h3>严格匹配规则示例</h3><span class="sub">真实清单以模板与映射库为准</span></div><div class="card-b"><div class="ck ok"><span class="ic">✓</span><span>指令 executor.formation_struct[].entity_type = ZB01 ↔ 想定 lstEquip[].mxnm=CMRM0300000000001（映射库 entityTypeMap）</span></div><div class="ck ok"><span class="ic">✓</span><span>指令 launch.weapon_type = WQ01 ↔ 想定 ammo.mxnm=WQ01（弹药库存充足性）</span></div><div class="ck ok"><span class="ic">✓</span><span>指令 ybnm ↔ 想定 ybnm；fanm 32 位十六进制；executor/target 类型码存在于想定兵力</span></div><div class="ck ok"><span class="ic">✓</span><span>时间窗口：action.start_time/end_time(相对秒) ⊆ 想定 [0, endTime-startTime]</span></div><div class="ck ok"><span class="ic">✓</span><span>期望事件可达：用例期望 cmreCode ↔ 指令 rule_type_code 配置一致（事件由规则产生）</span></div><div class="ck ok"><span class="ic">✓</span><span>实体 ID 对齐：想定 zyId/lstEquip ↔ 实体态势 EntityID ↔ 事件态势 srcID/targetID（38 位）</span></div><p class="pg-tip" style="margin-top:8px">严格匹配项由<b>校验引擎</b>强制执行（不依赖大模型），不一致项零漏报。</p></div></div>';
+  h+='<div class="card"><div class="card-h"><h3>事件类型字典（示例）</h3></div><div class="card-b" style="padding:6px 10px"><table class="tbl"><thead><tr><th>事件码</th><th>名称</th><th>关键字段</th><th>用途</th></tr></thead><tbody>';
+  [['CMRE000000001','探测报告事件','srcID/targetID/timeStamp','探测-跟踪链路判读'],['CMRE000000002','武器发射事件','srcID/weaponType/weaponCount','发射动作判读'],['CMRE000000003','产生实体毁伤事件','damagePercent/damageLevel/quitType','杀伤判定'],['CMRE000000005','规则触发事件','rule_type_code','规则覆盖判读'],['CMRE000000006','实体退出仿真事件','quitType','退出判读'],['CMRE000000004','动作实例执行','instCode/ECActionState.ActID','动作实例关联']].forEach(function(e){h+='<tr><td class="m">'+e[0]+'</td><td>'+e[1]+'</td><td class="m" style="font-size:11px">'+e[2]+'</td><td class="mini">'+e[3]+'</td></tr>';});
+  h+='</tbody></table></div></div>';
+  h+='</div>';
+  return h;
+}
+
+/* ================= 自动演示 ================= */
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function demoFlow(){if(S.auto)return;S.auto=true;$('autodemo').disabled=true;
+  (async function(){
+    resetFlow();S.hist=[];S.page='gen';renderShell();renderView();
+    toast('<b>自动演示开始</b>：以 T-026「空空弹 WQ01 出版测试」为例，重播完整测试流程','ok');
+    await sleep(900);
+    /* 1 生成 */
+    S.genLoading=true;renderView();await sleep(1500);
+    S.genLoading=false;S.descGen=true;S.cases=deepCases();S.cases.forEach(function(c){c.appr=false;});
+    renderView();toast('<b>STEP1 FR-1</b>：大模型已生成测试方案 + 12 条用例（建议稿）','ok');await sleep(1200);
+    /* 2 审定 */
+    S.approved=true;S.cases.forEach(function(c){c.appr=true;});renderView();
+    toast('<b>STEP2</b>：人工审定通过（留痕），进入想定构建','ok');await sleep(900);
+    /* 3 想定生成 */
+    S.page='scen';renderShell();renderView();await sleep(500);
+    S.scLoading=true;renderView();await sleep(1300);
+    S.scLoading=false;S.scGen=true;S.cases.forEach(function(c){if(c.appr){c.sc=true;c.scErr=(c.id==='TC-02');}});
+    renderView();toast('<b>STEP3 FR-2</b>：6 组想定/方案已生成，TC-02 存在 1 项严格匹配未通过','warn');await sleep(1500);
+    /* 4 自动修正 */
+    var c2=S.cases.find(function(c){return c.id==='TC-02';});c2.scErr=false;renderView();
+    toast('<b>STEP4</b>：TC-02 已自动修正（指令 rules[] 追加 rule_type_code=000681），全部校验通过','ok');await sleep(1000);
+    S.scSubmitted=true;goPage('run');
+    toast('<b>STEP5 FR-3</b>：6 组已提交运行队列，开始批量运行（并发 2）','ok');await sleep(800);
+    S.runActive=true;S.runStarted=true;S.cases.forEach(function(c){c.run='queue';c.prog=0;});
+    renderView();
+    scheduleCase('TC-01',0.3,2.6,true);scheduleCase('TC-02',0.6,2.4,true);scheduleCase('TC-03',0.9,1.8,true);
+    scheduleCase('TC-04',1.2,2.9,true);scheduleCase('TC-05',1.5,3.1,true);scheduleCase('TC-06',1.8,3.3,true);
+    while(!approvedCases().every(function(c){return c.run==='ok'||c.run==='fail';})){await sleep(300);}
+    S.runActive=false;renderView();
+    toast('<b>STEP6</b>：运行结束——5 成功 / TC-03 异常退出（已隔离）。点击重跑失败项','warn');await sleep(1300);
+    var f=S.cases.find(function(c){return c.run==='fail';});
+    if(f){f.run='run';f.prog=0;renderView();await sleep(2200);f.run='ok';f.prog=100;}
+    S.runDone=true;computeVerdicts();renderView();
+    toast('<b>STEP7</b>：TC-03 重跑通过。自动判读初判：4 通过 / 1 存疑 / 1 不通过','ok');await sleep(1400);
+    /* 判读 */
+    S.page='verdict';renderShell();renderView();S._sel='TC-02';
+    toast('<b>STEP8 FR-4</b>：TC-02 存疑——「发射后锁定」事件未检索到，唤起回放器复核','warn');await sleep(1500);
+    S._sel='TC-02';renderView();
+    var c2b=S.cases.find(function(c){return c.id==='TC-02';});
+    c2b.verdict='pass';c2b.vnote='经回放复核：规则触发域为迎头/高前置角，尾追条件不匹配；修订用例条件后重跑通过。';
+    var i1=S.issues.find(function(x){return x.id==='ISSUE-01';});i1.st='resolved';i1.res='用例条件修订后重跑通过（TC-02 判定通过）。';
+    toast('<b>STEP9</b>：人工复核 TC-02 → 判定通过（用例条件偏差，已修订）','ok');await sleep(1200);
+    S._sel='TC-06';renderView();
+    var c6=S.cases.find(function(c){return c.id==='TC-06';});
+    c6.verdict='fail';c6.vnote='人工确认缺陷：包线外发射未抑制，转缺陷单 DEF-20260903-01 遗留下版。';
+    var i2=S.issues.find(function(x){return x.id==='ISSUE-02';});i2.st='confirmed';i2.res='已确认缺陷并转单 DEF-20260903-01，遗留处理。';
+    toast('<b>STEP10</b>：TC-06 人工确认缺陷 → 判定不通过（遗留至下版）','err');await sleep(1300);
+    S.verdictDone=true;goPage('docs');
+    toast('<b>STEP11 FR-5</b>：一键生成过程文档包（5 份文档 + 追溯表）','ok');await sleep(1000);
+    S.docLoading=true;S._docDone=-1;renderView();await sleep(700);S._docDone=0;renderView();await sleep(700);S._docDone=1;renderView();await sleep(700);S._docDone=2;renderView();await sleep(700);S._docDone=3;renderView();await sleep(700);
+    S.docLoading=false;S.docGen=true;S.docsDone=true;renderView();
+    toast('<b>演示完成 ✅</b>：全链路已走通——文字描述 → 用例 → 想定/方案 → 批量运行 → 判读 → 文档归档。您可在各页面手动操作体验。','ok');
+    S.auto=false;$('autodemo').disabled=false;
+  })();}
+
+/* ================= init ================= */
+function bootPage(){var k=(location.hash||'').replace('#/','');if(!PAGES.some(function(p){return p.k===k;}))k='tasks';S.page=k;
+  if(k!=='tasks'){S.hist=['tasks'];}
+  renderShell();renderView();}
+bootPage();
+</script>
+</body>
+</html>

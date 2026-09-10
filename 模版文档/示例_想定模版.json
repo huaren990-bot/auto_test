@@ -1,0 +1,128 @@
+{
+  "cjlx": "DEMO_TYPE",
+  "endTime": "2027-01-01 13:30:00",
+  "startTime": "2027-01-01 10:00:00",
+  "yb": [
+    {
+      "dwsxnm": "01",
+      "data": {
+        "resource": {
+          "dwsxnm": "01",
+          "trooplist": [
+            {
+              "bzmc": "编队A-1",
+              "bznm": "",
+              "bzlx": "MX01",
+              "glph": "",
+              "llbznm": "000000000178539500000000000000006",
+              "sjllbznm": "000000000178539500000000000000007",
+              "jznm": null,
+              "jd": 120.1,
+              "wd": 30.2,
+              "gc": 0.0,
+              "lstEquip": [
+                {
+                  "lxzymc": "某型装备",
+                  "lxzynm": "a1b2c3d4-0000-4000-8000-000000000001",
+                  "mxlx": "MX01",
+                  "mxmc": "某型装备模型",
+                  "mxnm": "CMRM0300000000001",
+                  "sl": 1,
+                  "zyId": "CMRM0300000000001_00000001_00000010_00001",
+                  "AmDp": [
+                    {
+                      "ModelName": "某型配备型号",
+                      "ModelType": "某型配备型号",
+                      "count": 2
+                    }
+                  ],
+                  "Hang": [
+                    {
+                      "ModelName": "某型搭载型号",
+                      "ModelType": "某型搭载型号",
+                      "count": 1
+                    }
+                  ],
+                  "ammo": [
+                    {
+                      "lxzymc": "某型弹药",
+                      "lxzynm": "6a115b01-0000-4000-8000-000000000009",
+                      "mxlx": "AMMO01",
+                      "mxmc": "某型弹药",
+                      "mxnm": "AMMO01",
+                      "sl": 4
+                    }
+                  ],
+                  "bzmc": "某型装备",
+                  "llbznm": "MX01"
+                }
+              ]
+            }
+          ]
+        },
+        "dwsxnm": "01"
+      }
+    },
+    {
+      "dwsxnm": "02",
+      "data": {
+        "resource": {
+          "dwsxnm": "02",
+          "trooplist": [
+            {
+              "bzmc": "编队B-1",
+              "bznm": "",
+              "bzlx": "MX02",
+              "glph": "",
+              "llbznm": "000000000178539500000000000000008",
+              "sjllbznm": "000000000178539500000000000000009",
+              "jznm": null,
+              "jd": 120.5,
+              "wd": 30.5,
+              "gc": 0.0,
+              "lstEquip": [
+                {
+                  "lxzymc": "某型装备",
+                  "lxzynm": "a1b2c3d4-0000-4000-8000-000000000002",
+                  "mxlx": "MX02",
+                  "mxmc": "某型装备模型",
+                  "mxnm": "CMRM0300000000002",
+                  "sl": 1,
+                  "zyId": "CMRM0300000000002_00000001_00000011_00001",
+                  "AmDp": [
+                    {
+                      "ModelName": "某型配备型号",
+                      "ModelType": "某型配备型号",
+                      "count": 2
+                    }
+                  ],
+                  "Hang": [
+                    {
+                      "ModelName": "某型搭载型号",
+                      "ModelType": "某型搭载型号",
+                      "count": 1
+                    }
+                  ],
+                  "ammo": [
+                    {
+                      "lxzymc": "某型弹药",
+                      "lxzynm": "6a115b01-0000-4000-8000-000000000009",
+                      "mxlx": "AMMO01",
+                      "mxmc": "某型弹药",
+                      "mxnm": "AMMO01",
+                      "sl": 4
+                    }
+                  ],
+                  "bzmc": "某型装备",
+                  "llbznm": "MX02"
+                }
+              ]
+            }
+          ]
+        },
+        "dwsxnm": "02"
+      }
+    }
+  ],
+  "ybnm": "1-DEMO02_AB12CD34_01"
+}

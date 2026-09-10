@@ -1,0 +1,42 @@
+async page=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const setup=await page.evaluate(async()=>{
+  const core=await import('/core.js'),schema=await import('/action-schema.js');
+  const type={rule_type_code:'654321',xdmc:'完整字段验证',...Object.fromEntries(Object.keys(schema.flagFields).map(k=>[k,true]))};
+  let response=await fetch('/api/action-types',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(type)});
+  if(!response.ok&&response.status!==409)throw Error(await response.text());
+  const minimal={...type,rule_type_code:'654322',xdmc:'无目标干扰',...Object.fromEntries(Object.keys(schema.flagFields).map(k=>[k,['action_id','jam'].includes(k)]))};
+  await fetch('/api/action-types',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(minimal)});
+  const p=core.createPlan('完整字段浏览器验证');p.entities=[core.createEntity(core.models[0],'Blue'),core.createEntity(core.models[1],'Red')];
+  p.entities.push(...core.createMountedEntityBatch(core.models[2],p.entities[0],1,6,'ammo'));
+  const db=JSON.parse(localStorage.getItem('simtest-demo-v1'));db.plans.push(p);localStorage.setItem('simtest-demo-v1',JSON.stringify(db));return {id:p.id};
+ });
+ await page.goto('http://127.0.0.1:4174/#/plan/'+setup.id+'/actions');await page.reload();
+ await page.getByRole('button',{name:'添加行动',exact:true}).first().click();await page.locator('#command-type').selectOption('654321');
+ const form=page.locator('#command-fields');
+ if(await form.locator('[data-command-path]').count()<50)throw Error('Missing nested fields');
+ await page.getByRole('button',{name:'添加坐标点',exact:true}).last().click();
+ await page.getByRole('spinbutton',{name:'route.0.points.1.longitude',exact:true}).fill('122.7');
+ await page.getByRole('spinbutton',{name:'route.0.points.1.latitude',exact:true}).fill('32');
+ await page.getByRole('textbox',{name:'launch.0.target_child_id',exact:true}).fill('child-123');
+ await page.getByRole('combobox',{name:'is_auto_attack',exact:true}).selectOption('false');
+ await page.getByRole('spinbutton',{name:'launch.0.weapon_num',exact:true}).fill('7');
+ await page.getByRole('button',{name:'保存行动',exact:true}).click();
+ await page.getByRole('alert').filter({hasText:'挂载清单'}).waitFor();
+ await page.getByRole('spinbutton',{name:'launch.0.weapon_num',exact:true}).fill('2');
+ await page.locator('.modal-body').evaluate(el=>el.scrollTop=0);
+ await page.screenshot({path:'output/playwright/action-fields.png',animations:'disabled'});
+ if(await page.locator('.modal-body').evaluate(el=>el.scrollWidth>el.clientWidth+2))throw Error('Modal overflows horizontally');
+ await page.getByRole('button',{name:'保存行动',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'添加行动',exact:true}).first().click();await page.locator('#command-type').selectOption('654322');
+ if(await page.getByRole('combobox',{name:'target.0.target_id',exact:true}).count())throw Error('Minimal type still requires targets');
+ await page.getByRole('button',{name:'保存行动',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'生成文件',exact:true}).click();await page.getByRole('button',{name:'导出配套 ZIP',exact:true}).waitFor();
+ const plan=await page.evaluate(id=>JSON.parse(localStorage.getItem('simtest-demo-v1')).plans.find(p=>p.id===id),setup.id);
+ const groups=plan.generated.commands.rules[0].ruledata,full=groups.find(g=>g.action[0].rule_type_code==='654321'),minimal=groups.find(g=>g.action[0].rule_type_code==='654322');
+ if(full.action[0].route[0].points[1].longitude!==122.7||full.action[0].launch[0].target_child_id!=='child-123'||full.ruleconfig[0].is_auto_attack!==false)throw Error('Nested values lost');
+ if(Object.keys(full.action[0]).length!==15||Object.keys(full.ruleconfig[0]).length!==9)throw Error('Full schema not exported');
+ if('target' in minimal.action[0]||minimal.ruleconfig.length)throw Error('Minimal output incorrect');
+ if(errors.length)throw Error(errors.join('; '));
+ console.log('PASS: full nested editor, array addition, inventory validation, actual false value and target-free generation.');
+}

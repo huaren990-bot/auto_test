@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+.playwright-cli/
+output/playwright/*.zip
+output/playwright/*.png
+output/playwright/*.yml
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal

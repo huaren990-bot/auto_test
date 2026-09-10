@@ -1,0 +1,164 @@
+{
+  "rules": [
+    {
+      "fanm": "3f9c2ab8e1d04756a2b8c4d6e0f1a2b3",
+      "ybnm": "1-DEMO01_AB12CD34_01",
+      "ruledata": [
+        {
+          "action": [
+            {
+              "action_id": "EXEC_A_1",
+              "related_force": [
+                "hs",
+                "kd"
+              ],
+              "executor": [
+                {
+                  "executor_id": "EXEC_A_1",
+                  "formation_struct": [
+                    {
+                      "formation_id": "ZB01_1",
+                      "entity_count": 1,
+                      "entity_name": "某型平台",
+                      "entity_type": "ZB01"
+                    }
+                  ],
+                  "mount": [
+                    {
+                      "mount_type": "WQ01",
+                      "mount_type_name": "WQ01",
+                      "num": 10
+                    }
+                  ]
+                }
+              ],
+              "target": [
+                {
+                  "target_id": "ZB01_2"
+                }
+              ],
+              "launch": [
+                {
+                  "target_id": "WQ01_1",
+                  "target_child_id": "",
+                  "weapon_type": "WQ01",
+                  "weapon_num": 10,
+                  "way_points": [
+                    {
+                      "longitude": 120.1,
+                      "latitude": 30.2,
+                      "height": 0,
+                      "order": 0
+                    },
+                    {
+                      "longitude": 120.15,
+                      "latitude": 30.21,
+                      "height": 0,
+                      "order": 1
+                    }
+                  ]
+                }
+              ],
+              "region": [
+                {
+                  "points": [
+                    {
+                      "longitude": 120.3,
+                      "latitude": 30.4,
+                      "height": 5000,
+                      "order": 0
+                    },
+                    {
+                      "longitude": 120.9,
+                      "latitude": 30.4,
+                      "height": 5000,
+                      "order": 1
+                    },
+                    {
+                      "longitude": 120.9,
+                      "latitude": 30.0,
+                      "height": 5000,
+                      "order": 2
+                    },
+                    {
+                      "longitude": 120.3,
+                      "latitude": 30.0,
+                      "height": 5000,
+                      "order": 3
+                    }
+                  ],
+                  "region_type": "01"
+                }
+              ],
+              "route": [
+                {
+                  "points": [
+                    {
+                      "longitude": 120.0,
+                      "latitude": 30.1,
+                      "height": 0,
+                      "order": 0
+                    }
+                  ]
+                }
+              ],
+              "radar_angle": {
+                "start_horizontal_angle": 0,
+                "end_horizontal_angle": 10,
+                "start_vertical_angle": 0,
+                "end_vertical_angle": 60
+              },
+              "upstream_entity": [
+                "as",
+                "ed"
+              ],
+              "downstream_entity": [
+                "as",
+                "ifs"
+              ],
+              "supply": {
+                "refuel": 0.5,
+                "weapon_type": [
+                  "sss",
+                  "dc"
+                ],
+                "weapon_count": [
+                  1,
+                  10
+                ]
+              },
+              "start_time": 40,
+              "end_time": 5400,
+              "jam": {
+                "jam_type": "radar",
+                "jam_mode": "block"
+              },
+              "rule_type_code": "000680"
+            }
+          ],
+          "ruleconfig": [
+            {
+              "is_auto_attack": true,
+              "is_auto_return": {
+                "auto_return": true,
+                "airport_id": "JICHANG_A1"
+              },
+              "is_task_continue": true,
+              "is_hidden_maneuver": false,
+              "is_consider_environment": false,
+              "is_auto_deterrence": false,
+              "is_deterrence_auto_return": false,
+              "radar_detect_mode": {
+                "detect_mode": "scan",
+                "target_list": [
+                  "000000000178539500000000000000002"
+                ]
+              },
+              "intercept_strategy": 1.0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

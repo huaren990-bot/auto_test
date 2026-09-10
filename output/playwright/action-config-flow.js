@@ -1,0 +1,34 @@
+async page=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4174/#/library');await page.getByText('装备数据库已连接',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'行动目录',exact:true}).click();
+ await page.getByRole('button',{name:'添加行动类型',exact:true}).click();
+ await page.locator('#type-code').fill('123456');await page.locator('#type-name').fill('巡逻与干扰');
+ await page.locator('[data-type-flag="jam"]').check();await page.locator('[data-type-flag="route"]').check();
+ await page.locator('[data-type-flag="is_auto_attack"]').uncheck();
+ await page.getByRole('button',{name:'保存行动类型',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
+ let response=await page.request.get('http://127.0.0.1:4174/api/action-types');let catalog=(await response.json()).items;
+ if(!catalog.find(t=>t.rule_type_code==='123456'&&t.jam===true&&t.is_auto_attack===false))throw Error('Catalog flags not saved');
+ await page.getByRole('link',{name:'方案管理',exact:true}).click();await page.getByRole('button',{name:'编辑 基础行动验证',exact:true}).click();
+ await page.getByRole('button',{name:'行动指令 1',exact:true}).click();await page.getByRole('button',{name:'添加行动',exact:true}).click();
+ await page.locator('#command-type').selectOption('123456');await page.locator('#command-repeat').fill('3');
+ await page.getByRole('textbox',{name:'jam.jam_mode',exact:true}).fill('spot');
+ await page.getByRole('spinbutton',{name:'route.0.points.0.longitude',exact:true}).fill('123.5');
+ if(await page.getByRole('combobox',{name:'is_auto_attack',exact:true}).count())throw Error('Disabled policy field is visible');
+ if(await page.getByRole('combobox',{name:'launch.0.weapon_type',exact:true}).count())throw Error('Disabled launch is visible');
+ await page.setViewportSize({width:1440,height:1000});await page.locator('#command-fields').screenshot({path:'output/playwright/action-fields.png'});
+ await page.getByRole('button',{name:'保存行动',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
+ if(await page.getByRole('button',{name:'编辑行动',exact:true}).count()!==4)throw Error('Three batch actions not created');
+ await page.getByRole('button',{name:'编辑行动',exact:true}).nth(1).click();
+ if(await page.getByRole('textbox',{name:'jam.jam_mode',exact:true}).inputValue()!=='spot')throw Error('Edit lost nested values');
+ await page.getByRole('button',{name:'保存行动',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'生成文件',exact:true}).click();await page.getByRole('button',{name:'导出配套 ZIP',exact:true}).waitFor();
+ const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('simtest-demo-v1'))),plan=state.plans.find(p=>p.name==='基础行动验证');
+ const groups=plan.generated.commands.rules[0].ruledata,configured=groups.find(g=>g.action[0].rule_type_code==='123456');
+ if(configured.action.length!==3||new Set(configured.action.map(a=>a.action_id)).size!==3)throw Error('Batch generated IDs not unique');
+ if('is_auto_attack' in configured.ruleconfig[0]||'launch' in configured.action[0])throw Error('Disabled fields leaked into output');
+ if(configured.action[0].jam.jam_mode!=='spot'||configured.action[0].route[0].points[0].longitude!==123.5)throw Error('Configured parameters did not export');
+ await page.reload();await page.getByRole('heading',{name:'基础行动验证',exact:true}).waitFor();
+ if(errors.length)throw Error(errors.join('; '));
+ console.log('PASS: catalog persistence, enabled fields, nested values, batch IDs, editing, server export and reload.');
+}
