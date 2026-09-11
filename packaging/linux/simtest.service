@@ -1,0 +1,28 @@
+[Unit]
+Description=SimTest simulation scenario editor
+After=network.target
+
+[Service]
+Type=simple
+User=simtest
+Group=simtest
+WorkingDirectory=/opt/simtest/app
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=4173
+Environment=SIMTEST_DB_PATH=/var/lib/simtest/simtest.sqlite
+EnvironmentFile=-/etc/default/simtest
+ExecStart=/opt/simtest/runtime/bin/node /opt/simtest/app/scripts/serve.mjs
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/simtest
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

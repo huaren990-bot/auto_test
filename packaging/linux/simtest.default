@@ -1,0 +1,4 @@
+# SimTest service settings. Restart the service after changing this file.
+HOST=127.0.0.1
+PORT=4173
+SIMTEST_DB_PATH=/var/lib/simtest/simtest.sqlite

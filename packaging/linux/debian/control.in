@@ -1,0 +1,11 @@
+Package: simtest
+Version: @VERSION@
+Section: misc
+Priority: optional
+Architecture: @DEB_ARCH@
+Maintainer: SimTest Local Package <local@simtest.invalid>
+Installed-Size: @INSTALLED_SIZE@
+Description: Offline simulation scenario editor
+ SimTest is a local web application for editing simulation scenarios,
+ entities, mounts, and action commands. This package includes its Node.js
+ runtime and requires no network access after installation.

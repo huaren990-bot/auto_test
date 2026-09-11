@@ -58,6 +58,7 @@ test('action API saves flags and server generates configured actions with valida
  const dir=await mkdtemp(join(tmpdir(),'actions-http-')),server=createSimTestServer({databasePath:join(dir,'db.sqlite')});server.listen(0,'127.0.0.1');await once(server,'listening');const url=`http://127.0.0.1:${server.address().port}`;
  const request=(path,body,method='POST')=>fetch(url+path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
  try{const {p,type,values}=fixture(true);let res=await request('/api/action-types',type);assert.equal(res.status,201);assert.deepEqual((await res.json()).item,type);
+ res=await fetch(url+`/api/action-types?q=${encodeURIComponent('可配置')}&page=1&pageSize=1`);let catalog=await res.json();assert.equal(catalog.total,1);assert.equal(catalog.items[0].rule_type_code,type.rule_type_code);
  res=await request('/api/action-types/'+type.rule_type_code,{...type,is_auto_attack:false},'PUT');assert.equal(res.status,200);
  append(p,type,values);res=await request('/api/generate',p);assert.equal(res.status,200);const output=(await res.json()).files;assert.equal(output.commands.rules[0].ybnm,output.scenario.ybnm);assert.ok(output.commands.rules[0].ruledata[0].action[0].jam);
  delete p.actions[0].values.executor[0].formation_struct;res=await request('/api/generate',p);assert.equal(res.status,200);assert.equal('formation_struct' in (await res.json()).files.commands.rules[0].ruledata[0].action[0].executor[0],false);

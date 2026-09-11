@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+if [ "${1:-}" = purge ]; then
+  rm -rf /var/lib/simtest
+  deluser --system simtest >/dev/null 2>&1 || true
+  delgroup --system simtest >/dev/null 2>&1 || true
+fi

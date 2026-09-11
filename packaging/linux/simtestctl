@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NODE_BIN=/opt/simtest/runtime/bin/node
+DATA_FILE=/var/lib/simtest/simtest.sqlite
+COMMAND=${1:-status}
+
+read_setting() {
+  local key=$1 fallback=$2 value
+  value=$(sed -n -E "s/^${key}=(.*)$/\1/p" /etc/default/simtest 2>/dev/null | tail -n 1)
+  printf '%s' "${value:-$fallback}"
+}
+
+case "$COMMAND" in
+  start|stop|restart|status)
+    exec systemctl "$COMMAND" simtest.service
+    ;;
+  logs)
+    exec journalctl -u simtest.service -f -n 100
+    ;;
+  check)
+    host=$(read_setting HOST 127.0.0.1)
+    port=$(read_setting PORT 4173)
+    [[ $host == 0.0.0.0 ]] && host=127.0.0.1
+    "$NODE_BIN" -e "fetch('http://${host}:${port}/api/health').then(async r=>{const body=await r.text();console.log(body);if(!r.ok)process.exit(1)}).catch(e=>{console.error(e.message);process.exit(1)})"
+    ;;
+  foreground)
+    host=$(read_setting HOST 127.0.0.1)
+    port=$(read_setting PORT 4173)
+    exec env NODE_ENV=production HOST="$host" PORT="$port" SIMTEST_DB_PATH="$DATA_FILE" \
+      "$NODE_BIN" /opt/simtest/app/scripts/serve.mjs
+    ;;
+  backup)
+    destination=${2:-"$PWD/simtest-$(date +%Y%m%d-%H%M%S).sqlite"}
+    was_active=0
+    if systemctl is-active --quiet simtest.service; then
+      was_active=1
+      systemctl stop simtest.service
+    fi
+    trap 'if ((was_active)); then systemctl start simtest.service; fi' EXIT
+    install -m 0600 "$DATA_FILE" "$destination"
+    echo "Backup created: $destination"
+    ;;
+  *)
+    echo "Usage: simtestctl {start|stop|restart|status|logs|check|foreground|backup [FILE]}" >&2
+    exit 2
+    ;;
+esac

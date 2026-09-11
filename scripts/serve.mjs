@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ActionStore, ActionTypeError } from '../backend/action-store.mjs';
 import { generate } from '../frontend/core.js';
 import { ModelStore, ModelValidationError } from '../backend/model-store.mjs';
+import { PlanStore, PlanValidationError } from '../backend/plan-store.mjs';
 
 const frontendRoot=resolve(import.meta.dirname,'../frontend');
 const defaultDatabasePath=resolve(import.meta.dirname,'../data/simtest.sqlite');
@@ -15,7 +16,7 @@ async function readJson(req){
   const chunks=[];let size=0;
   for await(const chunk of req){
     size+=chunk.length;
-    if(size>1024*1024)throw Object.assign(new Error('请求内容不能超过 1 MB。'),{statusCode:413});
+    if(size>25*1024*1024)throw Object.assign(new Error('请求内容不能超过 25 MB。'),{statusCode:413});
     chunks.push(chunk);
   }
   if(!chunks.length)throw Object.assign(new Error('请求体不能为空。'),{statusCode:400});
@@ -25,6 +26,7 @@ async function readJson(req){
 
 function mapError(error){
   if(error instanceof ModelValidationError)return {status:400,message:error.message};
+  if(error instanceof PlanValidationError)return {status:error.statusCode||400,message:error.message};
   if((Number(error?.errcode)&0xff)===19)return {status:409,message:'型号编号、模型编码或资源类型编号已存在。'};
   return {status:error.statusCode||500,message:error.statusCode?error.message:'服务器处理失败。'};
 }
@@ -32,19 +34,25 @@ function mapError(error){
 export function createSimTestServer({root=frontendRoot,databasePath=defaultDatabasePath}={}){
   const store=new ModelStore(databasePath);
   const actions=new ActionStore(store.database);
+  const plans=new PlanStore(store.database);
   const server=http.createServer(async(req,res)=>{
     try{
       const url=new URL(req.url,'http://localhost'),path=decodeURIComponent(url.pathname);
-      if(path==='/api/health'&&req.method==='GET')return sendJson(res,200,{status:'ok',database:'sqlite',modelCount:store.count()});
+      if(path==='/api/health'&&req.method==='GET')return sendJson(res,200,{status:'ok',database:'sqlite',modelCount:store.count(),planCount:plans.count()});
       if(path==='/api/models'&&req.method==='GET'){
         const filters=Object.fromEntries(['FirstCfn','SecondCfn','ThirdCfn','ForthCfn'].map(field=>[field,url.searchParams.get(field)]));
+        if(url.searchParams.has('page')||url.searchParams.has('q'))return sendJson(res,200,store.search({filters,query:url.searchParams.get('q')||'',page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize')}));
         return sendJson(res,200,{items:store.list(filters)});
       }
       if(path==='/api/models'&&req.method==='POST')return sendJson(res,201,{item:store.create(await readJson(req))});
       if(path==='/api/models/import'&&req.method==='POST')return sendJson(res,201,{items:store.createMany(await readJson(req))});
-      if(path==='/api/action-types'&&req.method==='GET')return sendJson(res,200,{items:actions.list()});
+      if(path==='/api/action-types'&&req.method==='GET')return sendJson(res,200,url.searchParams.has('page')||url.searchParams.has('q')?actions.search({query:url.searchParams.get('q')||'',page:url.searchParams.get('page'),pageSize:url.searchParams.get('pageSize')}):{items:actions.list()});
       if(path==='/api/action-types'&&req.method==='POST')return sendJson(res,201,{item:actions.create(await readJson(req))});
       if(path.startsWith('/api/action-types/')&&req.method==='PUT')return sendJson(res,200,{item:actions.update(path.slice('/api/action-types/'.length),await readJson(req))});
+      if(path==='/api/plans'&&req.method==='GET')return sendJson(res,200,{items:plans.list()});
+      if(path==='/api/plans/import'&&req.method==='POST')return sendJson(res,201,{items:plans.importMissing(await readJson(req))});
+      if(path.startsWith('/api/plans/')&&req.method==='GET'){const item=plans.get(path.slice('/api/plans/'.length));return item?sendJson(res,200,{item}):sendJson(res,404,{error:'方案不存在。'});}
+      if(path.startsWith('/api/plans/')&&req.method==='PUT'){const id=path.slice('/api/plans/'.length),plan=await readJson(req);if(plan.id!==id)throw new PlanValidationError('路径中的方案编号与内容不一致。');return sendJson(res,200,{item:plans.save(plan)});}
       if(path==='/api/generate'&&req.method==='POST'){
         const plan=await readJson(req);
         if(!Array.isArray(plan?.entities)||!Array.isArray(plan?.actions))throw new ActionTypeError('想定实体和行动必须为列表。');
@@ -71,7 +79,7 @@ export function createSimTestServer({root=frontendRoot,databasePath=defaultDatab
 
 const launchedDirectly=process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url);
 if(launchedDirectly){
-  const port=Number(process.env.PORT||4173),databasePath=process.env.SIMTEST_DB_PATH||defaultDatabasePath;
+  const port=Number(process.env.PORT||4173),host=process.env.HOST||'127.0.0.1',databasePath=process.env.SIMTEST_DB_PATH||defaultDatabasePath;
   const server=createSimTestServer({databasePath});
-  server.listen(port,'127.0.0.1',()=>console.log(`SimTest: http://127.0.0.1:${port} · SQLite: ${databasePath}`));
+  server.listen(port,host,()=>console.log(`SimTest: http://${host}:${port} · SQLite: ${databasePath}`));
 }

@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+if ! getent group simtest >/dev/null; then
+  addgroup --system simtest
+fi
+if ! id -u simtest >/dev/null 2>&1; then
+  adduser --system --ingroup simtest --home /var/lib/simtest --no-create-home --disabled-login simtest
+fi
+install -d -o simtest -g simtest -m 0750 /var/lib/simtest
+if [ ! -f /var/lib/simtest/simtest.sqlite ]; then
+  install -o simtest -g simtest -m 0640 /opt/simtest/seed/simtest.sqlite /var/lib/simtest/simtest.sqlite
+fi
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload
+  systemctl enable simtest.service >/dev/null
+  systemctl restart simtest.service
+fi

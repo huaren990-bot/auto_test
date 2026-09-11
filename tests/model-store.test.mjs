@@ -54,6 +54,8 @@ test('model HTTP API reads and creates concrete types from the SQLite table',asy
     assert.equal(response.status,201);assert.equal(body.item.mxlx,'AIRCRAFT-API');
     response=await fetch(`${base}/api/models?ThirdCfn=${encodeURIComponent('飞机')}`);body=await response.json();
     assert.equal(body.items.some(item=>item.mxlx==='AIRCRAFT-API'),true);
+    response=await fetch(`${base}/api/models?q=${encodeURIComponent('测试飞机')}&page=1&pageSize=1`);body=await response.json();
+    assert.equal(body.total,1);assert.equal(body.items.length,1);assert.equal(body.pageSize,1);
     response=await fetch(`${base}/api/models`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model('AIRCRAFT-API'))});
     assert.equal(response.status,409);
     const health=await (await fetch(`${base}/api/health`)).json();assert.equal(health.database,'sqlite');assert.equal(health.modelCount,4);

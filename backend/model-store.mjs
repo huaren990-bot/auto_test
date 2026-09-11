@@ -95,6 +95,15 @@ export class ModelStore {
     return this.database.prepare(`SELECT ${storedFields.join(', ')} FROM equipment_models${where} ORDER BY FirstCfn, SecondCfn, ThirdCfn, ForthCfn, mxmc, mxlx`).all(params).map(rowToModel);
   }
 
+  search({filters={},query='',page=1,pageSize=50}={}){
+    const allowed=['FirstCfn','SecondCfn','ThirdCfn','ForthCfn'],active=allowed.filter(field=>typeof filters[field]==='string'&&filters[field].trim()),where=[],params={};
+    for(const field of active){where.push(`${field} = $${field}`);params[field]=filters[field].trim();}
+    if(typeof query==='string'&&query.trim()){params.query=`%${query.trim()}%`;where.push(`(mxmc LIKE $query OR mxlx LIKE $query OR mxnm LIKE $query OR FirstCfn LIKE $query OR SecondCfn LIKE $query OR ThirdCfn LIKE $query OR ForthCfn LIKE $query)`);}
+    const clause=where.length?' WHERE '+where.join(' AND '):'',size=Math.min(100,Math.max(1,Math.trunc(Number(pageSize))||50)),total=Number(this.database.prepare(`SELECT COUNT(*) AS count FROM equipment_models${clause}`).get(params).count),pages=Math.max(1,Math.ceil(total/size)),current=Math.min(pages,Math.max(1,Math.trunc(Number(page))||1));
+    const items=this.database.prepare(`SELECT ${storedFields.join(', ')} FROM equipment_models${clause} ORDER BY FirstCfn, SecondCfn, ThirdCfn, ForthCfn, mxmc, mxlx LIMIT $limit OFFSET $offset`).all({...params,limit:size,offset:(current-1)*size}).map(rowToModel);
+    return {items,total,page:current,pageSize:size,pages};
+  }
+
   get(mxlx){
     const row=this.database.prepare(`SELECT ${storedFields.join(', ')} FROM equipment_models WHERE mxlx = ?`).get(mxlx);
     return row?rowToModel(row):null;

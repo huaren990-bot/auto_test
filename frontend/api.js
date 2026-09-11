@@ -4,6 +4,8 @@ const KEY='simtest-demo-v1';
 const MODEL_ENDPOINT='/api/models';
 const now=()=>new Date().toISOString();
 const categoryKeys=['FirstCfn','SecondCfn','ThirdCfn','ForthCfn'];
+const demoPlanNames=new Set(['基础行动验证','多实体协同行动','挂载数量边界验证','实体部署与航路验证','新模型接入验证']);
+const isBuiltinDemoPlan=plan=>plan.demoSeed===true||demoPlanNames.has(plan.name)&&plan.revision===1;
 const normalizeModel=model=>{const builtin=models.find(m=>m.id===model.id||m.mxlx===model.mxlx),mxlx=model.mxlx?.trim()||model.id?.trim(),mxmc=model.mxmc?.trim();return {...model,id:mxlx,mxlx,mxmc,mxnm:model.mxnm?.trim()||mxlx,lxzymc:model.lxzymc?.trim()||mxmc,lxzynm:model.lxzynm?.trim()||crypto.randomUUID(),commandType:model.commandType?.trim()||mxlx,...Object.fromEntries(categoryKeys.map((key,index)=>[key,model[key]?.trim()||builtin?.[key]||(index===3?'无':'未分类')]))};};
 const assertModel=model=>{if(!model||['mxmc','mxlx',...categoryKeys].some(key=>typeof model[key]!=='string'||!model[key].trim()))throw new Error('装备名称、型号编号和四级分类均为必填项。');if(model.id!=null&&String(model.id).trim()!==model.mxlx.trim())throw new Error('型号内部标识必须与型号编号一致。');};
 const request=async(path,options={})=>{const response=await fetch(path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});let body={};try{body=await response.json();}catch{}if(!response.ok)throw new Error(body.error||`服务请求失败（${response.status}）。`);return body;};
@@ -11,6 +13,7 @@ function seed(){
   const names=['基础行动验证','多实体协同行动','挂载数量边界验证','实体部署与航路验证','新模型接入验证'];
   const plans=names.map((name,i)=>{
     const p=createPlan(name);p.description=['验证完整的想定、指令生成与行动判读流程。','为多个实体配置独立行动，检查指令展开与引用关系。','检查计划使用量与实体初始挂载的一致性。','通过地图调整部署位置与行动航路。','加载模型配置，建立新的仿真实体。'][i];
+    p.demoSeed=true;
     if(i===4)return p;
     p.entities=[createEntity(models[0],'Blue',1,120.1,30.2),createEntity(models[1],'Red',1,122.5,29.5)];
     p.actions=[createAction(p.entities[0].id,p.entities[1].id)];
@@ -47,6 +50,7 @@ for(const plan of db.plans){
 db.version=6;
 db.actionTypes=(db.actionTypes||[clone(defaultActionType)]).map(normalizeActionType);
 let actionCatalogError='',actionCatalogReady=false;
+let planMode='local',planError='',planReady=false;
 // Reload never turns an unfinished mock run into a success.
 for(const r of db.runs)if(['queued','running','collecting'].includes(r.status)){r.status='interrupted';r.logs.push('页面重新加载，模拟执行已中断。');}
 let storageError=false;
@@ -80,11 +84,25 @@ setInterval(()=>{
 // Replace this adapter with HTTP calls without coupling pages to persistence or simulation.
 export const api={
   mode:'hybrid',
-  snapshot(){return {...clone(db),storageError,catalogMode,catalogError,actionCatalogError,actionCatalogReady};},
+  snapshot(){return {...clone(db),storageError,catalogMode,catalogError,actionCatalogError,actionCatalogReady,planMode,planError,planReady};},
+  async initializePlans(){
+    try{
+      planError='';const local=clone(db.plans),first=await request('/api/plans',{cache:'no-store'});if(!Array.isArray(first.items))throw new Error('方案服务返回格式不正确。');
+      const remoteIds=new Set(first.items.map(plan=>plan.id)),missing=local.filter(plan=>!remoteIds.has(plan.id)&&(!first.items.length||!isBuiltinDemoPlan(plan)));
+      if(missing.length){const imported=await request('/api/plans/import',{method:'POST',body:JSON.stringify(missing)});if(!Array.isArray(imported.items))throw new Error('方案迁移返回格式不正确。');}
+      const latest=missing.length?await request('/api/plans',{cache:'no-store'}):first;if(!Array.isArray(latest.items))throw new Error('方案服务返回格式不正确。');
+      db.plans=latest.items.length||!local.length?latest.items:local;planMode='backend';planReady=true;
+    }catch(error){planMode='local';planReady=false;planError=error.message||'方案数据库连接失败。';}
+    emit();return clone(db.plans);
+  },
   async initializeActions(){
     try{const result=await request('/api/action-types',{cache:'no-store'});if(!Array.isArray(result.items))throw new Error('行动目录返回格式不正确。');db.actionTypes=result.items;actionCatalogReady=true;actionCatalogError='';}
     catch(error){actionCatalogReady=false;actionCatalogError=error.message;}
     emit();
+  },
+  async queryActionTypes({query='',page=1,pageSize=50}={}){
+    if(actionCatalogReady){const params=new URLSearchParams({q:query,page:String(page),pageSize:String(pageSize)}),result=await request('/api/action-types?'+params,{cache:'no-store'});if(Number.isFinite(result.total))return result;const items=result.items||[],start=(page-1)*pageSize;return {items:items.slice(start,start+pageSize),total:items.length,page,pages:Math.max(1,Math.ceil(items.length/pageSize)),pageSize};}
+    const q=query.trim().toLocaleLowerCase(),items=db.actionTypes.filter(type=>!q||type.xdmc.toLocaleLowerCase().includes(q)||type.rule_type_code.includes(q)),pages=Math.max(1,Math.ceil(items.length/pageSize)),current=Math.min(pages,Math.max(1,page));return {items:clone(items.slice((current-1)*pageSize,current*pageSize)),total:items.length,page:current,pages,pageSize};
   },
   async saveActionType(value,editing=false){
     if(!actionCatalogReady)throw new Error('行动数据库未连接，请刷新页面后重试。');
@@ -105,10 +123,14 @@ export const api={
       db.models=remote.map(normalizeModel);catalogMode='backend';catalogInitialized=true;emit();return clone(db.models);
     }catch(error){catalogMode='fallback';catalogInitialized=true;catalogError=error.message||'模型数据库连接失败。';emit();return clone(db.models);}
   },
-  async savePlan(plan){await delay();const p=clone(plan);p.updated=now();const i=db.plans.findIndex(x=>x.id===p.id);if(i<0)db.plans.unshift(p);else db.plans[i]=p;emit();return clone(p);},
-  async createPlan(name,example=false){const p=example?copyPlan(seed().plans[0]):createPlan(name);p.name=name;return this.savePlan(p);},
+  async queryModels({query='',filters={},page=1,pageSize=50}={}){
+    if(catalogMode==='backend'){const params=new URLSearchParams({q:query,page:String(page),pageSize:String(pageSize)});for(const [key,value] of Object.entries(filters))if(value)params.set(key,value);const result=await request(MODEL_ENDPOINT+'?'+params,{cache:'no-store'});if(Number.isFinite(result.total))return result;const items=result.items||[],start=(page-1)*pageSize;return {items:items.slice(start,start+pageSize),total:items.length,page,pages:Math.max(1,Math.ceil(items.length/pageSize)),pageSize};}
+    let items=db.models.filter(model=>Object.entries(filters).every(([key,value])=>!value||(model[key]||'未分类')===value));const q=query.trim().toLocaleLowerCase();items=items.filter(model=>!q||[model.mxmc,...categoryKeys.map(key=>model[key]),model.description].some(value=>String(value||'').toLocaleLowerCase().includes(q)));const pages=Math.max(1,Math.ceil(items.length/pageSize)),current=Math.min(pages,Math.max(1,page));return {items:clone(items.slice((current-1)*pageSize,current*pageSize)),total:items.length,page:current,pages,pageSize};
+  },
+  async savePlan(plan){await delay();let p=clone(plan);p.updated=now();if(planReady){try{p=(await request('/api/plans/'+encodeURIComponent(p.id),{method:'PUT',body:JSON.stringify(p)})).item;planMode='backend';planError='';}catch(error){planMode='local';planReady=false;planError=`方案写入数据库失败，已保留在浏览器：${error.message}`;}}const i=db.plans.findIndex(x=>x.id===p.id);if(i<0)db.plans.unshift(p);else db.plans[i]=p;emit();return clone(p);},
+  async createPlan(name,example=false){const p=example?copyPlan(seed().plans[0]):createPlan(name);delete p.demoSeed;p.name=name;return this.savePlan(p);},
   async copyPlan(id){return this.savePlan(copyPlan(db.plans.find(p=>p.id===id)));},
-  async archivePlan(id){db.plans.find(p=>p.id===id).archived=!db.plans.find(p=>p.id===id).archived;emit();},
+  async archivePlan(id){const plan=clone(db.plans.find(p=>p.id===id));plan.archived=!plan.archived;return this.savePlan(plan);},
   async generate(plan){const p=clone(plan);p.generated=actionCatalogReady?(await request('/api/generate',{method:'POST',body:JSON.stringify(p)})).files:generate(p);await this.savePlan(p);return p;},
   async enqueue(plans,outcome='review'){
     await delay();const batchId=uid('batch_');const output=[];
