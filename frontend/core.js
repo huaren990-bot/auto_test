@@ -29,33 +29,54 @@ export const entityId = e => e.bzlx?.trim() ? e.llbznm : e.zyId;
 export const deployedEntities = plan => plan.entities.filter(entity=>!entity.parentId);
 export const mountedEntities = (plan,parentId,kind=null) => plan.entities.filter(entity=>entity.parentId===parentId&&(!kind||entity.mountKind===kind));
 export const mountedWeaponEntities = (plan,parentId) => mountedEntities(plan,parentId).filter(entity=>['ammo','AmDp'].includes(entity.mountKind));
-export function createEntity(model, side = 'Blue', index = 1, lon = 120.1, lat = 30.2) {
+export function createEntity(model, side = 'Blue', index = 1, lon = 120.1, lat = 30.2, name = null) {
   const n = numericId();
-  return { id:uid('ent_'), name:`${side === 'Blue' ? '蓝' : '红'}方平台 ${String(index).padStart(2,'0')}`, side,
+  return { id:uid('ent_'), name:name||`${side === 'Blue' ? '蓝' : '红'}方平台 ${String(index).padStart(2,'0')}`, side,
     model:clone(model), bzlx:model.bzlx ?? null, llbznm:n, sjllbznm:numericId(), formationId:uid('FORM_'),
     zyId:`${model.mxnm}_${n.slice(0,8)}_${n.slice(8,16)}_${n.slice(16,21)}`,
     lon,lat,height:0,parentId:null,mountKind:null };
 }
-export function createEntityBatch(model, side = 'Blue', startIndex = 1, lon = 120.1, lat = 30.2, quantity = 1, formation = false) {
+export function createEntityBatch(model, side = 'Blue', startIndex = 1, lon = 120.1, lat = 30.2, quantity = 1, formation = false, baseName = null) {
   const count=Math.min(50,Math.max(1,Math.trunc(Number(quantity)||1))),columns=Math.ceil(Math.sqrt(count)),spacing=.08;
   const rows=Math.ceil(count/columns),entities=[];
   for(let i=0;i<count;i++){
     const column=i%columns,row=Math.floor(i/columns);
     const e=createEntity(model,side,startIndex+i,
       Math.max(-180,Math.min(180,lon+(column-(columns-1)/2)*spacing)),
-      Math.max(-90,Math.min(90,lat+(row-(rows-1)/2)*spacing)));
+      Math.max(-90,Math.min(90,lat+(row-(rows-1)/2)*spacing)),
+      baseName?(count>1?`${baseName} ${String(i+1).padStart(2,'0')}`:baseName):null);
     e.bzlx=formation?(model.bzlx||model.mxlx||'FORMATION'):null;
     entities.push(e);
   }
   return entities;
 }
-export function createMountedEntityBatch(model,parent,startIndex=1,quantity=1,mountKind='ammo'){
+export function createMountedEntityBatch(model,parent,startIndex=1,quantity=1,mountKind='ammo',baseName=null){
   if(!mountKinds.some(kind=>kind.id===mountKind))throw new Error('挂载关系无效。');
   if(!mountKindAcceptsModel(mountKind,model))throw new Error(`${mountKinds.find(kind=>kind.id===mountKind).name}不能挂载该分类的实体模型。`);
   const count=Math.max(1,Math.trunc(Number(quantity)||1));
   return Array.from({length:count},(_,index)=>createEntity(model,parent.side,startIndex+index,parent.lon,parent.lat)).map((entity,index)=>({...entity,
-    name:`${model.mxmc} ${String(startIndex+index).padStart(2,'0')}`,side:parent.side,parentId:parent.id,mountKind,bzlx:null,height:parent.height
+    name:baseName?(count>1?`${baseName} ${String(index+1).padStart(2,'0')}`:baseName):`${model.mxmc} ${String(startIndex+index).padStart(2,'0')}`,side:parent.side,parentId:parent.id,mountKind,bzlx:null,height:parent.height
   }));
+}
+// Adjust the count of one mount group (same parent + relation + model) in place; returns true when anything changed.
+export function setMountGroupCount(plan,parentId,kind,model,count){
+  const parent=plan.entities.find(entity=>entity.id===parentId);
+  if(!parent||parent.parentId)throw new Error('所属主实体不存在或不是地图实体。');
+  if(!mountKinds.some(item=>item.id===kind))throw new Error('挂载关系无效。');
+  if(!model||!mountKindAcceptsModel(kind,model))throw new Error('该模型不能挂载在此关系下。');
+  const target=Math.trunc(Number(count));
+  if(!Number.isSafeInteger(target)||target<0||target>999)throw new Error('数量必须是 0 至 999 的整数。');
+  const group=mountedEntities(plan,parentId,kind).filter(entity=>entity.model.id===model.id);
+  if(target===group.length)return false;
+  if(target<group.length){
+    if(kind==='Hang'&&!target&&mountedEntities(plan,parentId,'AmDp').length)throw new Error('请先删除武器库中的武器，再移除最后一个机库飞机。');
+    const remove=new Set(group.slice(target).map(entity=>entity.id));
+    plan.entities=plan.entities.filter(entity=>!remove.has(entity.id));
+  }else{
+    if(kind==='AmDp'&&!mountedEntities(plan,parentId,'Hang').length)throw new Error('需先为主实体挂载机库飞机，才能向武器库添加武器。');
+    plan.entities.push(...createMountedEntityBatch(model,parent,group.length+1,target-group.length,kind));
+  }
+  return true;
 }
 export function createPlan(name = '未命名方案') {
   return { id:uid('plan_'), name, description:'', start:'2027-01-01 10:00:00', end:'2027-01-01 13:30:00',
@@ -154,7 +175,10 @@ export function generate(p, title) {
   return {ybnm,scenario,commands,revision:p.revision,created:new Date().toISOString()};
 }
 
-// A small, dependency-free ZIP writer (STORE method) keeps the two identical names in separate folders.
+// Scenario keeps {ybnm}.json; the command file adds the _xdzl suffix so the pair never collides.
+export const pairNames = f => ({scenario:`${f.ybnm}.json`,commands:`${f.ybnm}_xdzl.json`});
+
+// A small, dependency-free ZIP writer (STORE method) keeps the two inputs in separate folders.
 export function makeZip(files) {
   const enc=new TextEncoder(), chunks=[], central=[];let offset=0;
   const crc=bytes=>{let c=0xffffffff;for(const b of bytes){c^=b;for(let i=0;i<8;i++)c=(c>>>1)^((c&1)?0xedb88320:0);}return(c^0xffffffff)>>>0;};

@@ -4,7 +4,7 @@ import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { models, mountKinds, modelClassification, modelMountRole, mountKindAcceptsModel, deployedEntities, mountedEntities, mountedWeaponEntities, createPlan, createEntity, createEntityBatch, createMountedEntityBatch, createAction, copyPlan, entityId, validate, generate, makeZip } from '../frontend/core.js';
+import { models, mountKinds, modelClassification, modelMountRole, mountKindAcceptsModel, deployedEntities, mountedEntities, mountedWeaponEntities, createPlan, createEntity, createEntityBatch, createMountedEntityBatch, setMountGroupCount, createAction, copyPlan, entityId, validate, generate, makeZip, pairNames } from '../frontend/core.js';
 
 function fixture(){const p=createPlan('字段一致性验证');p.entities=[createEntity(models[0],'Blue'),createEntity(models[1],'Red')];p.actions=[createAction(p.entities[0].id,p.entities[1].id)];return p;}
 
@@ -126,4 +126,34 @@ test('ZIP preserves Chinese filenames and separate same-name inputs with valid C
     const output=execFileSync('python3',['-c','import sys,zipfile,json; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; names=z.namelist(); assert len(names)==2; a=json.loads(z.read(names[0])); b=json.loads(z.read(names[1])); assert a["ybnm"]==b["rules"][0]["ybnm"]; print("OK")',file],{encoding:'utf8'});
     assert.equal(output.trim(),'OK');
   }finally{await rm(tmp,{recursive:true,force:true});}
+});
+test('custom names are kept for single entities and sequenced for batches',()=>{
+  assert.deepEqual(createEntityBatch(models[0],'Blue',4,120,30,1,false,'雷达站').map(e=>e.name),['雷达站']);
+  assert.deepEqual(createEntityBatch(models[0],'Blue',4,120,30,3,false,'雷达站').map(e=>e.name),['雷达站 01','雷达站 02','雷达站 03']);
+  assert.deepEqual(createEntityBatch(models[0],'Blue',4,120,30,2).map(e=>e.name),['蓝方平台 04','蓝方平台 05']);
+  const p=fixture();
+  assert.deepEqual(createMountedEntityBatch(models[2],p.entities[0],3,1,'ammo','弹药').map(e=>e.name),['弹药']);
+  assert.deepEqual(createMountedEntityBatch(models[2],p.entities[0],3,2,'ammo','弹药').map(e=>e.name),['弹药 01','弹药 02']);
+  assert.deepEqual(createMountedEntityBatch(models[2],p.entities[0],3,2,'ammo').map(e=>e.name),['某型弹药 03','某型弹药 04']);
+});
+test('mount group count adjusts in place and keeps the hangar guard',()=>{
+  const p=fixture(),parent=p.entities[0];
+  p.entities.push(...createMountedEntityBatch(models[2],parent,1,2,'ammo'));
+  assert.equal(setMountGroupCount(p,parent.id,'ammo',models[2],4),true);
+  assert.equal(mountedEntities(p,parent.id,'ammo').length,4);
+  assert.equal(setMountGroupCount(p,parent.id,'ammo',models[2],4),false);
+  assert.equal(setMountGroupCount(p,parent.id,'ammo',models[2],1),true);
+  assert.equal(mountedEntities(p,parent.id,'ammo').length,1);
+  p.entities.push(...createMountedEntityBatch(models[1],parent,1,1,'Hang'));
+  p.entities.push(...createMountedEntityBatch(models[2],parent,1,1,'AmDp'));
+  assert.throws(()=>setMountGroupCount(p,parent.id,'Hang',models[1],0),/机库/);
+  assert.throws(()=>setMountGroupCount(p,parent.id,'ammo',models[2],1000),/999/);
+  assert.equal(setMountGroupCount(p,parent.id,'AmDp',models[2],0),true);
+  assert.equal(setMountGroupCount(p,parent.id,'Hang',models[1],0),true);
+  assert.equal(validate(p).errors.length,0);
+});
+test('command file carries the _xdzl suffix so the generated pair never collides',()=>{
+  const f=generate(fixture()),names=pairNames(f);
+  assert.deepEqual(names,{scenario:f.ybnm+'.json',commands:f.ybnm+'_xdzl.json'});
+  assert.notEqual(names.scenario,names.commands);
 });
