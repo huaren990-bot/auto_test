@@ -43,6 +43,13 @@ test('required nested fields, inventory totals and current entity references are
  a.values.is_auto_return={auto_return:true,airport_id:referenceId(p.entities[1])};assert.throws(()=>generate(p),/机场/);a.values.is_auto_return={auto_return:true,airport_id:referenceId(p.entities[0])};
  a.values.launch[0].weapon_num=4;append(p,type,a.values);assert.throws(()=>generate(p),/计划使用 8/);
 });
+test('return location accepts only same-side entities whose third category is airport or ship',()=>{
+ const {p,type,values}=fixture(true),ship=createEntity({...models[0],id:'SHIP-RETURN',mxlx:'SHIP-RETURN',mxnm:'SHIP-RETURN',ThirdCfn:'舰船',ForthCfn:'驱逐舰'},'Blue'),fourthOnly=createEntity({...models[0],id:'FOURTH-AIRPORT',mxlx:'FOURTH-AIRPORT',mxnm:'FOURTH-AIRPORT',ThirdCfn:'飞机',ForthCfn:'机场'},'Blue');
+ p.entities.push(ship,fourthOnly);const action=append(p,type,values);action.values.is_auto_return={auto_return:true,airport_id:referenceId(ship)};
+ assert.deepEqual(validate(p).errors,[]);
+ action.values.is_auto_return.airport_id=referenceId(fourthOnly);assert.ok(validate(p).errors.some(error=>error.message.includes('三级分类为机场或舰船')));
+ action.values.is_auto_return.airport_id=referenceId(p.entities[1]);assert.ok(validate(p).errors.some(error=>error.message.includes('返航机场')));
+});
 test('copy rewrites configured references while preserving type snapshots',()=>{
  const {p,type,values}=fixture(true);append(p,type,values);const copy=copyPlan(p);assert.deepEqual(validate(copy).errors,[]);
  assert.notEqual(copy.actions[0].values.executor[0].executor_id,p.actions[0].values.executor[0].executor_id);assert.notEqual(copy.actions[0].values.target[0].target_id,p.actions[0].values.target[0].target_id);assert.notEqual(copy.actions[0].id,p.actions[0].id);assert.deepEqual(copy.actions[0].definition,type);

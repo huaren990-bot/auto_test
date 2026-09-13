@@ -48,6 +48,7 @@ export function validateActionType(type){
   return errors;
 }
 export const referenceId=e=>e.bzlx?.trim()?e.llbznm:e.zyId;
+export const isReturnLocation=(entity,side)=>!!entity&&!entity.parentId&&entity.side===side&&['机场','舰船'].includes(String(entity.model?.ThirdCfn||'').trim());
 export const weaponItems=(plan,owner)=>plan.entities.filter(e=>e.parentId===owner&&['ammo','AmDp'].includes(e.mountKind));
 export function weaponGroups(plan,owner){const groups=new Map();for(const e of weaponItems(plan,owner)){const type=e.model.mxlx;const group=groups.get(type)||{mount_type:type,mount_type_name:e.model.mxmc,num:0};group.num++;groups.set(type,group);}return [...groups.values()];}
 export function schemaDefault(schema){
@@ -126,7 +127,7 @@ export function validateConfiguredAction(a,plan){
   if(values.start_time>seconds||values.end_time>seconds||values.start_time>values.end_time)errors.push('行动时间必须位于仿真时长内，结束不早于开始。');
   if(type.supply&&values.supply.weapon_type.length!==values.supply.weapon_count.length)errors.push('补给武器型号与数量必须一一对应。');
   if(type.radar_angle){const x=values.radar_angle;if(x.start_horizontal_angle>x.end_horizontal_angle||x.start_vertical_angle>x.end_vertical_angle)errors.push('雷达角度的结束值不能小于起始值。');}
-  if(type.is_auto_return){const x=values.is_auto_return,airport=find(x.airport_id);if((x.auto_return||x.airport_id)&&(!airport||airport.side!==root.side||![airport.model.ThirdCfn,airport.model.ForthCfn].some(s=>s?.includes('机场'))))errors.push('返航机场须选择当前阵营的机场实体。');}
+  if(type.is_auto_return){const x=values.is_auto_return,airport=find(x.airport_id);if((x.auto_return||x.airport_id)&&!isReturnLocation(airport,root.side))errors.push('返航机场只可选择当前阵营中三级分类为机场或舰船的实体。');}
   if(type.radar_detect_mode&&values.radar_detect_mode.target_list.some(id=>!find(id)))errors.push('雷达探测目标必须引用当前想定实体。');
   const checkPoints=(points,label)=>{if(new Set(points.map(p=>p.order)).size!==points.length)errors.push(`${label}的点顺序不能重复。`);};
   if(type.region)for(const r of values.region){checkPoints(r.points,'区域');if(new Set(r.points.map(p=>`${p.longitude},${p.latitude}`)).size<3)errors.push('区域至少需要三个不同的边界点。');}
